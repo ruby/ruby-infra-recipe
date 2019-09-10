@@ -21,6 +21,6 @@ nobu
   file "/home/#{u}/.ssh/authorized_keys" do
     mode  "600"
     owner u
-    source "keys/#{u}.keys"
+    content File.read("keys/#{u}.keys")
   end
 end
