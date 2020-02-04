@@ -1,3 +1,5 @@
+WHEEL_GID = "10"
+
 %w[
 hsbt
 mame
@@ -6,6 +8,10 @@ nobu
 ].each do |u|
   user u do
     action :create
+  end
+
+  user u do
+    gid WHEEL_GID
   end
 
   directory "/home/#{u}" do
