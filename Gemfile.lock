@@ -2,6 +2,8 @@ GEM
   remote: https://rubygems.org/
   specs:
     ansi (1.5.0)
+    bcrypt_pbkdf (1.0.1)
+    ed25519 (1.2.4)
     hashie (4.1.0)
     hocho (0.3.0)
       hashie
@@ -31,6 +33,8 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  bcrypt_pbkdf
+  ed25519
   hocho
 
 BUNDLED WITH
