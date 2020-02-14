@@ -1,4 +1,4 @@
-WHEEL_GID = "10"
+WHEEL_GID = 10
 
 %w[
 hsbt
