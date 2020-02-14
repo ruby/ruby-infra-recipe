@@ -1,0 +1,13 @@
+property_providers:
+  - add_default:
+      properties:
+        preferred_driver: mitamae
+
+driver_options:
+  mitamae:
+    mitamae_path: /usr/local/bin/mitamae
+    mitamae_options: ['--log-level', 'info']
+    mitamae_prepare_script: |
+      curl -L https://github.com/itamae-kitchen/mitamae/releases/latest/download/mitamae-x86_64-linux.tar.gz | tar xvz
+      mv mitamae-x86_64-linux /usr/local/bin/mitamae
+      chmod +x /usr/local/bin/mitamae
