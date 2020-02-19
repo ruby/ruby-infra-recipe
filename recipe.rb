@@ -30,3 +30,9 @@ nobu
     content File.read("keys/#{u}.keys")
   end
 end
+
+user "chkbuild"
+directory "/home/#{u}" do
+  mode  "755"
+  owner "chkbuild"
+end
