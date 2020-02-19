@@ -32,7 +32,19 @@ nobu
 end
 
 user "chkbuild"
-directory "/home/#{u}" do
+directory "/home/chkbuild" do
   mode  "755"
   owner "chkbuild"
 end
+
+node.reverse_merge!(
+  rbenv: {
+    user: 'chkbuild',
+    global: '2.5.7',
+    versions: %w[
+      2.5.7
+    ],
+  }
+)
+
+include_recipe "rbenv::user"

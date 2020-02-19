@@ -1,0 +1,3 @@
+[submodule "plugins/itamae-plugin-recipe-rbenv"]
+	path = plugins/itamae-plugin-recipe-rbenv
+	url = https://github.com/k0kubun/itamae-plugin-recipe-rbenv
