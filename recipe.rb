@@ -1,4 +1,8 @@
-WHEEL_GID = 10
+hostname = run_command('hostname').stdout.chomp
+
+WHEEL_GID = {
+  "chkbuild004.hsbt.org" => 27, # sudo
+}.fetch(hostname, 10)
 
 %w[
 hsbt
