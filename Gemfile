@@ -1,5 +1,5 @@
 source "https://rubygems.org"
 
-gem "hocho", git: "https://github.com/sorah/hocho", branch: "no-compress"
+gem "hocho", ">= 0.3.1"
 gem "bcrypt_pbkdf"
 gem "ed25519"
