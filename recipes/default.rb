@@ -1,9 +1,3 @@
-hostname = run_command('hostname').stdout.chomp
-
-WHEEL_GID = {
-  "chkbuild004.hsbt.org" => 27, # sudo
-}.fetch(hostname, 10)
-
 %w[
   hsbt
   mame
@@ -11,7 +5,12 @@ WHEEL_GID = {
   nobu
 ].each do |u|
   user u do
-    gid WHEEL_GID
+    case node[:platform]
+    when 'debian', 'ubuntu'
+      gid 27 # sudo
+    else
+      gid 10 # wheel
+    end
   end
 
   directory "/home/#{u}" do
