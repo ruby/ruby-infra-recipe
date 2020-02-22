@@ -1,1 +1,1 @@
-execute "echo hello world"
+execute 'echo hello world'

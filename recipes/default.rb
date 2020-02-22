@@ -14,26 +14,26 @@
   end
 
   directory "/home/#{u}" do
-    mode  "755"
+    mode  '755'
     owner u
   end
 
   directory "/home/#{u}/.ssh" do
-    mode  "700"
+    mode  '700'
     owner u
   end
 
   remote_file "/home/#{u}/.ssh/authorized_keys" do
     source "keys/#{u}.keys"
-    mode  "600"
+    mode  '600'
     owner u
   end
 end
 
-user "chkbuild"
-directory "/home/chkbuild" do
-  mode  "755"
-  owner "chkbuild"
+user 'chkbuild'
+directory '/home/chkbuild' do
+  mode  '755'
+  owner 'chkbuild'
 end
 
 node.reverse_merge!(
@@ -46,4 +46,4 @@ node.reverse_merge!(
   }
 )
 
-include_recipe "rbenv::user"
+include_recipe 'rbenv::user'
