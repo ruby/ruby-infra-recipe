@@ -29,3 +29,7 @@ bundle exec hocho apply --config=hocho-opencsw.yml -n login.opencsw.org
 # apply
 bundle exec hocho apply --config=hocho-opencsw.yml login.opencsw.org
 ```
+
+## License
+
+[Ruby License](https://www.ruby-lang.org/en/about/license.txt)
