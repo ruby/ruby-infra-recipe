@@ -28,10 +28,10 @@ nobu
     owner u
   end
 
-  file "/home/#{u}/.ssh/authorized_keys" do
+  remote_file "/home/#{u}/.ssh/authorized_keys" do
+    source "keys/#{u}.keys"
     mode  "600"
     owner u
-    content File.read("keys/#{u}.keys")
   end
 end
 
