@@ -5,15 +5,11 @@ WHEEL_GID = {
 }.fetch(hostname, 10)
 
 %w[
-hsbt
-mame
-k0kubun
-nobu
+  hsbt
+  mame
+  k0kubun
+  nobu
 ].each do |u|
-  user u do
-    action :create
-  end
-
   user u do
     gid WHEEL_GID
   end
