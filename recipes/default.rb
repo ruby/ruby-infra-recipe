@@ -8,6 +8,8 @@
     case node[:platform]
     when 'debian', 'ubuntu'
       gid 27 # sudo
+    when 'openbsd'
+      gid 0 # wheel
     else
       gid 10 # wheel
     end
