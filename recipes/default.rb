@@ -57,6 +57,12 @@ node.reverse_merge!(
 
 include_recipe 'rbenv::user'
 
+git "chkbuild" do
+  repository "https://github.com/ruby/chkbuild"
+  user "chkbuild"
+  not_if "test -e /home/chkbuild/chkbuild"
+end
+
 case node[:platform]
 when 'fedora'
   package 'cronie'
