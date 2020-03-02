@@ -52,6 +52,7 @@ node.reverse_merge!(
     versions: %w[
       2.5.7
     ],
+    install_development_dependency: true,
   }
 )
 
