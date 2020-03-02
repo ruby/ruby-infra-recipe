@@ -8,6 +8,7 @@
     case node[:platform]
     when 'debian', 'ubuntu'
       gid 27 # sudo
+      shell '/bin/bash'
     when 'openbsd'
       gid 0 # wheel
     else
@@ -32,7 +33,13 @@
   end
 end
 
-user 'chkbuild'
+user 'chkbuild' do
+  case node[:platform]
+  when 'debian', 'ubuntu'
+    shell '/bin/bash'
+  end
+end
+
 directory '/home/chkbuild' do
   mode  '755'
   owner 'chkbuild'
