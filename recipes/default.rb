@@ -71,4 +71,6 @@ when 'fedora'
   service 'crond' do
     action [:enable, :start]
   end
+
+  package 'patch'
 end
