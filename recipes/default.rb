@@ -49,3 +49,12 @@ node.reverse_merge!(
 )
 
 include_recipe 'rbenv::user'
+
+case node[:platform]
+when 'fedora'
+  package 'cronie'
+  package 'cronie-anacron'
+  service 'crond' do
+    action [:enable, :start]
+  end
+end
