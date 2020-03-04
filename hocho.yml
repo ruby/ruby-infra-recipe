@@ -8,6 +8,36 @@ driver_options:
     mitamae_path: /usr/local/bin/mitamae
     mitamae_options: ['--log-level', 'info']
     mitamae_prepare_script: |
-      curl -L https://github.com/itamae-kitchen/mitamae/releases/latest/download/mitamae-x86_64-linux.tar.gz | tar xvz
-      mv mitamae-x86_64-linux /usr/local/bin/mitamae
+      mitamae_repo="itamae-kitchen/mitamae"
+      case "$(uname -s)" in
+        Linux)
+          mitamae_os="linux"
+          ;;
+        Darwin)
+          mitamae_os="darwin"
+          ;;
+        OpenBSD)
+          mitamae_os="openbsd"
+          mitamae_repo="itamae-kitchen/mitamae-build"
+          ;;
+        SunOS)
+          mitamae_os="solaris" # should be "sunos"?
+          mitamae_repo="itamae-kitchen/mitamae-build"
+          ;;
+        *)
+          echo "OS '$(uname -s)' is not supported yet"
+          exit 1
+          ;;
+      esac
+
+      # TODO: switch mitamae_arch
+      mitamae_arch="x86_64"
+
+      # TODO: support .tar.gz in mitamae-build
+      if [[ $mitamae_repo == "itamae-kitchen/mitamae-build" ]]; then
+        curl -fL "https://github.com/${mitamae_repo}/releases/latest/download/mitamae-${mitamae_arch}-${mitamae_os}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
+      else
+        curl -fL "https://github.com/${mitamae_repo}/releases/latest/download/mitamae-${mitamae_arch}-${mitamae_os}.tar.gz" | tar xvz
+      fi
+      mv "mitamae-${mitamae_arch}-${mitamae_os}" /usr/local/bin/mitamae
       chmod +x /usr/local/bin/mitamae
