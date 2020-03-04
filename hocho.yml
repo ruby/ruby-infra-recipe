@@ -16,6 +16,10 @@ driver_options:
         Darwin)
           mitamae_os="darwin"
           ;;
+        FreeBSD)
+          mitamae_os="freebsd"
+          mitamae_repo="itamae-kitchen/mitamae-build"
+          ;;
         OpenBSD)
           mitamae_os="openbsd"
           mitamae_repo="itamae-kitchen/mitamae-build"
