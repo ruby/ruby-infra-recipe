@@ -74,4 +74,9 @@ when 'fedora'
   package 'patch'
 when 'redhat'
   package 'patch'
+when 'gentoo'
+  package 'fcron'
+  service 'fcron' do
+    action [:enable, :start]
+  end
 end
