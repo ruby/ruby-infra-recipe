@@ -1,7 +1,8 @@
 %w[
   hsbt
-  mame
   k0kubun
+  knu
+  mame
   nobu
 ].each do |u|
   user u do
