@@ -11,6 +11,8 @@
       shell '/bin/bash'
     when 'openbsd'
       gid 0 # wheel
+    when 'opensuse'
+      gid 100 # users (workaround no wheel)
     else
       gid 10 # wheel
     end
