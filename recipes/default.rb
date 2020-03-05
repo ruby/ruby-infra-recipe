@@ -94,6 +94,8 @@ when 'fedora'
   package 'patch'
 when 'redhat'
   package 'patch'
+when 'openbsd'
+  package 'patch'
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
