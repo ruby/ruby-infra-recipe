@@ -18,6 +18,14 @@ doas pkg_add bash
 doas pkg_add sudo # then add NOPASSWD to /etc/sudoers
 ```
 
+#### Funtoo
+
+```bash
+# Try adding `package 'eix'` before all other `package` next time
+sudo emerge eix
+sudo eix-update # to be automated too
+```
+
 ### Run hocho
 
 ```bash
