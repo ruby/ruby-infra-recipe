@@ -5,9 +5,9 @@
 ### Prepare environment for hocho apply
 (some of them are to be automated using hocho)
 
-1. Added ssh configuration to `~/.ssh/config`.
+1. Added ssh configuration to `~/.ssh/config` for your machine.
 2. Install curl and rsync in target VM.
-3. Added `NOPASSWD` option to `/etc/sudoers`.
+3. Added `NOPASSWD` option to `/etc/sudoers` in target VM.
 
 #### OpenBSD
 (to be automated using hocho)
