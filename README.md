@@ -59,7 +59,6 @@ bundle exec hocho apply --config=hocho-opencsw.yml login.opencsw.org
 ## TODO for chkbuild user
 
 * Added rbenv PATH to `.bash_profile`
-* Invoke `gem i aws-sdk -v "~>2"` with rbenv ruby.
 * Added crontab with aws credentials.
 
 ## License
