@@ -40,10 +40,10 @@ bundle exec hocho apply chkbuild004.hsbt.org
 
 ```bash
 # dry-run
-for i in 004 006 008 011 012; do bundle exec hocho apply -n "chkbuild${i}.hsbt.org"; done
+for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 centos6 centos7 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu; do bundle exec hocho apply -n "${i}.rubyci.org"; done
 
 # apply
-for i in 004 006 008 011 012; do bundle exec hocho apply "chkbuild${i}.hsbt.org"; done
+for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 centos6 centos7 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu; do bundle exec hocho apply "${i}.rubyci.org"; done
 ```
 
 ### OpenCSW [experimental]
