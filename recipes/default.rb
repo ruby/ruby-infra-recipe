@@ -47,9 +47,16 @@ directory '/home/chkbuild' do
   owner 'chkbuild'
 end
 
+if node[:platform] == 'opensuse'
+  group = 'users'
+else
+  group = 'chkbuild'
+end
+
 node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
+    group: group,
     global: '2.5.7',
     versions: %w[
       2.5.7
