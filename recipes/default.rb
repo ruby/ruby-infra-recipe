@@ -92,9 +92,7 @@ when 'fedora'
     action [:enable, :start]
   end
   package 'patch'
-when 'redhat'
-  package 'patch'
-when 'openbsd'
+when 'redhat', 'openbsd', 'opensuse'
   package 'patch'
 when 'gentoo'
   package 'fcron'
