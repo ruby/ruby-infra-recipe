@@ -9,7 +9,7 @@
     when 'debian', 'ubuntu'
       gid 27 # sudo
       shell '/bin/bash'
-    when 'openbsd'
+    when 'freebsd', 'openbsd'
       gid 0 # wheel
     when 'opensuse'
       gid 100 # users (workaround no wheel)
@@ -55,7 +55,17 @@ node.reverse_merge!(
       2.5.7
     ],
     install_development_dependency: true,
-  }
+  },
+  'ruby-build': {
+    build_envs: {
+      'RUBY_CONFIGURE_OPTS': '--disable-dtrace',
+    },
+  },
+  'rbenv-default-gems': {
+    'default-gems': [
+      'aws-sdk ~>2',
+    ],
+  },
 )
 
 include_recipe 'rbenv::user'
