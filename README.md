@@ -30,10 +30,10 @@ sudo eix-update # to be automated too
 
 ```bash
 # dry-run
-bundle exec hocho apply -n debian.hsbt.org
+bundle exec hocho apply -n debian.rubyci.org
 
 # apply
-bundle exec hocho apply debian.hsbt.org
+bundle exec hocho apply debian.rubyci.org
 ```
 
 ### All chkbuild
