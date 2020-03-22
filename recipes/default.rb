@@ -2,6 +2,7 @@
   hsbt
   k0kubun
   knu
+  ko1
   mame
   nobu
 ].each do |u|
