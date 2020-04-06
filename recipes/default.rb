@@ -5,6 +5,7 @@
   ko1
   mame
   nobu
+  znz
 ].each do |u|
   user u do
     case node[:platform]
