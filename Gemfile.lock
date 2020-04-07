@@ -5,12 +5,12 @@ GEM
     bcrypt_pbkdf (1.0.1)
     ed25519 (1.2.4)
     hashie (4.1.0)
-    hocho (0.3.1)
+    hocho (0.3.4)
       hashie
       itamae
-      net-ssh
+      net-ssh (>= 4.1.0)
       thor
-    itamae (1.10.6)
+    itamae (1.10.7)
       ansi
       hashie
       schash (~> 0.1.0)
@@ -22,7 +22,7 @@ GEM
     net-telnet (0.1.1)
     schash (0.1.2)
     sfl (2.3)
-    specinfra (2.82.9)
+    specinfra (2.82.13)
       net-scp
       net-ssh (>= 2.7)
       net-telnet (= 0.1.1)
