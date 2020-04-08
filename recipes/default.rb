@@ -5,6 +5,7 @@
   ko1
   mame
   nobu
+  shyouhei
   znz
 ].each do |u|
   user u do
