@@ -1,4 +1,5 @@
 %w[
+  eregon
   hsbt
   k0kubun
   knu
