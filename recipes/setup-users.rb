@@ -1,5 +1,5 @@
 Dir.glob(File.expand_path("../keys/*.keys", __FILE__)).sort.each do |key|
-  u = key[/\/([^\/]+)\.keys$/, 1] # u = File.basename(key, ".keys")
+  u = File.basename(key).delete_suffix('.keys')
   user u do
     case node[:platform]
     when 'debian', 'ubuntu'
