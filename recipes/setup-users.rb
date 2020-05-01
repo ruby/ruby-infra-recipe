@@ -1,4 +1,4 @@
-Dir.glob(File.expand_path("../keys", __FILE__) + "/*.keys").sort.each do |key|
+Dir.glob(File.expand_path("../keys/*.keys", __FILE__)).sort.each do |key|
   u = key[/\/([^\/]+)\.keys$/, 1] # u = File.basename(key, ".keys")
   user u do
     case node[:platform]
