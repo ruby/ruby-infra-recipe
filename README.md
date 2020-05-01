@@ -46,16 +46,6 @@ for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31
 for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 centos6 centos7 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu riscv; do bundle exec hocho apply "${i}.rubyci.org"; done
 ```
 
-### OpenCSW [experimental]
-
-```bash
-# dry-run
-bundle exec hocho apply --config=hocho-opencsw.yml -n login.opencsw.org
-
-# apply
-bundle exec hocho apply --config=hocho-opencsw.yml login.opencsw.org
-```
-
 ## TODO for chkbuild user
 
 * Added rbenv PATH to `.bash_profile`
