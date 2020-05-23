@@ -35,7 +35,18 @@ driver_options:
       esac
 
       # TODO: switch mitamae_arch
-      mitamae_arch="x86_64"
+      case "$(uname -m)" in
+        x86_64)
+          mitamae_arch="x86_64"
+          ;;
+        aarch64)
+          mitamae_arch="aarch64"
+          ;;
+        *)
+          echo "machine '$(uname -m)' is not supported yet"
+          exit 1
+          ;;
+      esac
 
       # TODO: support .tar.gz in mitamae-build
       if [[ $mitamae_repo == "itamae-kitchen/mitamae-build" ]]; then

@@ -40,10 +40,10 @@ bundle exec hocho apply debian.rubyci.org
 
 ```bash
 # dry-run
-for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos6 centos7 centos8 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu2004 ubuntu riscv; do bundle exec hocho apply -n "${i}.rubyci.org"; done
+for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos6 centos7 centos8 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu2004 ubuntu riscv graviton2; do bundle exec hocho apply -n "${i}.rubyci.org"; done
 
 # apply
-for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos6 centos7 centos8 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu2004 ubuntu riscv; do bundle exec hocho apply "${i}.rubyci.org"; done
+for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos6 centos7 centos8 debian8 debian9 debian openbsd ubuntu1604 ubuntu1804 ubuntu2004 ubuntu riscv graviton2; do bundle exec hocho apply "${i}.rubyci.org"; done
 ```
 
 ## TODO for chkbuild user
