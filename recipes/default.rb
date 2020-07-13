@@ -35,7 +35,7 @@ node.reverse_merge!(
   },
   'rbenv-default-gems': {
     'default-gems': [
-      'aws-sdk-s3 ~>3',
+      'aws-sdk-s3',
     ],
   },
 )
