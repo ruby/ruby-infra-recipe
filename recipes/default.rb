@@ -22,9 +22,9 @@ node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
     group: group,
-    global: '2.5.7',
+    global: '2.6.6',
     versions: %w[
-      2.5.7
+      2.6.6
     ],
     install_development_dependency: true,
   },
@@ -35,7 +35,7 @@ node.reverse_merge!(
   },
   'rbenv-default-gems': {
     'default-gems': [
-      'aws-sdk ~>2',
+      'aws-sdk-s3',
     ],
   },
 )
