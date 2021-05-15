@@ -34,7 +34,6 @@ driver_options:
           ;;
       esac
 
-      # TODO: switch mitamae_arch
       case "$(uname -m)" in
         x86_64)
           mitamae_arch="x86_64"
