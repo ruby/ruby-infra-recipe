@@ -5,9 +5,16 @@
 ### Prepare environment for hocho apply
 (some of them are to be automated using hocho)
 
-1. Added ssh configuration to `~/.ssh/config` for your machine.
-2. Install curl and rsync in target VM.
-3. Added `NOPASSWD` option to `/etc/sudoers` in target VM.
+1. Add the ssh configuration to `~/.ssh/config` for your machine as follows. The `Host <ip address>` is used as an argument of the `hocho apply` later.
+
+    ```
+    Host debian.rubyci.org
+      User=<user>
+      IdentityFile <path to key>
+    ```
+
+2. Install `curl` and `rsync` commands in the target VM server.
+3. Add the `NOPASSWD` option to `/etc/sudoers` for your logined user in the target VM server.
 
 #### OpenBSD
 (to be automated using hocho)
@@ -27,6 +34,8 @@ sudo eix-update # to be automated too
 ```
 
 ### Run hocho
+
+The specified domain is equivalent with the `Host <ip address>` in the `~/.ssh/config`.
 
 ```bash
 # dry-run
