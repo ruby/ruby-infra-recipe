@@ -45,6 +45,10 @@ driver_options:
           mitamae_arch="ppc64le"
           mitamae_repo="itamae-kitchen/mitamae-build"
           ;;
+        s390x)
+          mitamae_arch="s390x"
+          mitamae_repo="itamae-kitchen/mitamae-build"
+          ;;
         *)
           echo "machine '$(uname -m)' is not supported yet"
           exit 1
