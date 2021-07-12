@@ -38,6 +38,9 @@ sudo eix-update # to be automated too
 The specified domain is equivalent with the `Host <ip address>` in the `~/.ssh/config`.
 
 ```bash
+# check if you can login
+bash -cx "ssh debian.rubyci.org echo OK"
+
 # dry-run
 bin/hocho apply -n debian.rubyci.org
 
@@ -48,6 +51,9 @@ bin/hocho apply debian.rubyci.org
 ### All chkbuild
 
 ```bash
+# check if you can login
+for i in $(bin/hosts); do bash -cx "ssh ${i} echo OK"; done
+
 # dry-run
 for i in $(bin/hosts); do bundle exec hocho apply -n "${i}"; done
 
