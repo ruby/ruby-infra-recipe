@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Show a host list in `hosts.yml`.
+
+require 'yaml'
+
+# FIXME: rubocop C: [Correctable] Security/YAMLLoad: Prefer using
+# YAML.safe_load over YAML.load.
+hosts = YAML.load(File.read('hosts.yml'))
+hosts.each_key do |host|
+  puts host
+end

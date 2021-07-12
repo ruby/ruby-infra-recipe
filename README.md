@@ -49,10 +49,10 @@ bin/hocho apply debian.rubyci.org
 
 ```bash
 # dry-run
-for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos7 debian9 debian openbsd ubuntu1804 ubuntu2004 ubuntu riscv graviton2 arm64-neoverse-n1 ppc64le s390x; do bundle exec hocho apply -n "${i}.rubyci.org"; done
+for i in $(bin/hosts); do bundle exec hocho apply -n "${i}"; done
 
 # apply
-for i in debian10 funtoo amazon amazon2 opensuseleap arch icc freebsd12 fedora31 fedora32 centos7 debian9 debian openbsd ubuntu1804 ubuntu2004 ubuntu riscv graviton2 arm64-neoverse-n1 ppc64le s390x; do bundle exec hocho apply "${i}.rubyci.org"; done
+for i in $(bin/hosts); do bundle exec hocho apply "${i}"; done
 ```
 
 ## TODO for chkbuild user
