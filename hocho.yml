@@ -60,7 +60,7 @@ driver_options:
         curl -o /dev/null -sIf "$url"
       }
 
-      # Get tags in new order.
+      # Get tags in new order. The newest tag is first, the oldest tag is last.
       tags=$(git ls-remote --refs --tags "https://github.com/${mitamae_repo}" \
         | cut -d '/' -f 3 | sort -Vr)
       for tag in ${tags}; do
@@ -68,18 +68,21 @@ driver_options:
         # TODO: support .tar.gz in mitamae-build
         if [[ $mitamae_repo == "itamae-kitchen/mitamae-build" ]]; then
           # If the URL exists, download it.
-          if ! url_exists "${url}"; then
-            continue
+          if url_exists "${url}"; then
+            curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
+            echo "mitamae '${tag}' is downloaded"
+            break
           fi
-          curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
         else
           url="${url}.tar.gz"
-          if ! url_exists "${url}"; then
-            continue
+          if url_exists "${url}"; then
+            curl -fL "${url}" | tar xvz
+            echo "mitamae '${tag}' is downloaded"
+            break
           fi
-          curl -fL "${url}" | tar xvz
         fi
       done
 
       mv "mitamae-${mitamae_arch}-${mitamae_os}" /usr/local/bin/mitamae
       chmod +x /usr/local/bin/mitamae
+      /usr/local/bin/mitamae version
