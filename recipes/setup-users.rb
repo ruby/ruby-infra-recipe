@@ -9,6 +9,8 @@ Dir.glob(File.expand_path("../keys/*.keys", __FILE__)).sort.each do |key|
       gid 0 # wheel
     when 'opensuse'
       gid 100 # users (workaround no wheel)
+    when 'arch'
+      gid 998 # wheel
     else
       gid 10 # wheel
     end
