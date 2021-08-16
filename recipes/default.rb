@@ -69,6 +69,8 @@ when 'fedora'
   package 'patch'
 when 'redhat', 'openbsd', 'opensuse'
   package 'patch'
+when 'arch'
+  package 'cronie'
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
