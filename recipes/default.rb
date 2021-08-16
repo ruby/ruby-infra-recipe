@@ -72,6 +72,9 @@ when 'redhat', 'openbsd', 'opensuse'
 when 'arch'
   package 'cronie'
   package 'vi' # for crontab -e
+  service 'cronie' do
+    action [:enable, :start]
+  end
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
