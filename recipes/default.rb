@@ -42,6 +42,17 @@ node.reverse_merge!(
 
 include_recipe 'rbenv::user'
 
+file "/home/chkbuild/.bash_profile" do
+  action :create
+  owner 'chkbuild'
+  group 'chkbuild'
+  mode '644'
+  content <<-EOF
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
+  EOF
+end
+
 git "chkbuild" do
   repository "https://github.com/ruby/chkbuild"
   user "chkbuild"
