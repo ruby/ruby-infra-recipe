@@ -71,6 +71,7 @@ when 'redhat', 'openbsd', 'opensuse'
   package 'patch'
 when 'arch'
   package 'cronie'
+  package 'vi' # for crontab -e
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
