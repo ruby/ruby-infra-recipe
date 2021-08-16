@@ -13,7 +13,7 @@
       IdentityFile <path to key>
     ```
 
-2. Install `curl` and `rsync` commands in the target VM server.
+2. Install `curl`, `git` and `rsync` commands in the target VM server.
 3. Add the `NOPASSWD` option to `/etc/sudoers` for your logined user in the target VM server.
 
 #### OpenBSD

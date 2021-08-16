@@ -22,9 +22,9 @@ node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
     group: group,
-    global: '2.6.6',
+    global: '3.0.2',
     versions: %w[
-      2.6.6
+      3.0.2
     ],
     install_development_dependency: true,
   },
@@ -42,6 +42,17 @@ node.reverse_merge!(
 
 include_recipe 'rbenv::user'
 
+file "/home/chkbuild/.bash_profile" do
+  action :create
+  owner 'chkbuild'
+  group 'chkbuild'
+  mode '644'
+  content <<-EOF
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
+  EOF
+end
+
 git "chkbuild" do
   repository "https://github.com/ruby/chkbuild"
   user "chkbuild"
@@ -58,6 +69,12 @@ when 'fedora'
   package 'patch'
 when 'redhat', 'openbsd', 'opensuse'
   package 'patch'
+when 'arch'
+  package 'cronie'
+  package 'vi' # for crontab -e
+  service 'cronie' do
+    action [:enable, :start]
+  end
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
