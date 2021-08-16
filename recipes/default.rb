@@ -45,7 +45,6 @@ include_recipe 'rbenv::user'
 file "/home/chkbuild/.bash_profile" do
   action :create
   owner 'chkbuild'
-  group 'chkbuild'
   mode '644'
   content <<-EOF
 export PATH="$HOME/.rbenv/bin:$PATH"
