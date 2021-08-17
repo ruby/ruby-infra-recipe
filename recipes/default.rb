@@ -74,6 +74,7 @@ when 'arch'
   service 'cronie' do
     action [:enable, :start]
   end
+  package 'inetutils' # for ruby/spec/ruby/library/socket/socket/gethostname_spec.rb
 when 'gentoo'
   package 'fcron'
   service 'fcron' do
