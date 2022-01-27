@@ -1,4 +1,4 @@
-# rubyci-recipe
+# ruby-infra-recipe
 
 ## Usage
 
