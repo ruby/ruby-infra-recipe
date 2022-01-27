@@ -61,11 +61,6 @@ for i in $(bin/hosts); do bundle exec hocho apply -n "${i}"; done
 for i in $(bin/hosts); do bundle exec hocho apply "${i}"; done
 ```
 
-## TODO for chkbuild user
-
-* Added rbenv PATH to `.bash_profile`
-* Added crontab with aws credentials.
-
 ## License
 
 [Ruby License](https://www.ruby-lang.org/en/about/license.txt)
