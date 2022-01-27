@@ -38,6 +38,9 @@ driver_options:
         x86_64)
           mitamae_arch="x86_64"
           ;;
+        amd64)
+          mitamae_arch="x86_64"
+          ;;
         aarch64)
           mitamae_arch="aarch64"
           ;;
