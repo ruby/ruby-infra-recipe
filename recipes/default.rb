@@ -22,7 +22,7 @@ node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
     group: group,
-    global: '3.0.3',
+    global: '3.1.1',
     versions: %w[
       3.0.3
       3.1.1
