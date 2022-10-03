@@ -24,7 +24,6 @@ node.reverse_merge!(
     group: group,
     global: '3.1.1',
     versions: %w[
-      3.0.3
       3.1.1
     ],
     install_development_dependency: true,
