@@ -18,27 +18,6 @@ else
   group = 'chkbuild'
 end
 
-if File.directory?("/home/chkbuild/.rbenv")
-  execute "git remote set-url origin https://github.com/rbenv/rbenv.git" do
-    cwd "/home/chkbuild/.rbenv"
-    user 'chkbuild'
-  end
-end
-
-if File.directory?("/home/chkbuild/.rbenv/plugins/ruby-build")
-  execute "git remote set-url origin https://github.com/rbenv/ruby-build.git" do
-    cwd "/home/chkbuild/.rbenv/plugins/ruby-build"
-      user 'chkbuild'
-  end
-end
-
-if File.directory?("/home/chkbuild/.rbenv/plugins/rbenv-default-gems")
-  execute "git remote set-url origin https://github.com/rbenv/rbenv-default-gems.git" do
-    cwd "/home/chkbuild/.rbenv/plugins/rbenv-default-gems"
-      user 'chkbuild'
-  end
-end
-
 node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
