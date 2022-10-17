@@ -10,19 +10,20 @@ GEM
       itamae
       net-ssh (>= 4.1.0)
       thor
-    itamae (1.12.5)
+    itamae (1.14.1)
       ansi
       hashie
       schash (~> 0.1.0)
       specinfra (>= 2.64.0, < 3.0.0)
-      thor
-    net-scp (3.0.0)
-      net-ssh (>= 2.6.5, < 7.0.0)
-    net-ssh (6.1.0)
+      thor (>= 1.0.0)
+    net-scp (4.0.0.rc1)
+      net-ssh (>= 2.6.5, < 8.0.0)
+    net-ssh (7.0.1)
     net-telnet (0.1.1)
+    psych (3.3.4)
     schash (0.1.2)
     sfl (2.3)
-    specinfra (2.83.1)
+    specinfra (2.83.3)
       net-scp
       net-ssh (>= 2.7)
       net-telnet (= 0.1.1)
@@ -36,6 +37,7 @@ DEPENDENCIES
   bcrypt_pbkdf
   ed25519
   hocho (>= 0.3.7)
+  psych (~> 3.0)
 
 BUNDLED WITH
    2.2.27
