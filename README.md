@@ -16,6 +16,20 @@
 2. Install `curl`, `git` and `rsync` commands in the target VM server.
 3. Add the `NOPASSWD` option to `/etc/sudoers` for your logined user in the target VM server.
 
+### RHEL
+
+You should enable CodeReady Linux Builder repository.
+
+```bash
+sudo yum-config-manager --enable codeready-builder-for-rhel-9-rhui-rpms
+```
+
+You can confirm these repos with the following command.
+
+```bash
+sudo yum repolist --all
+```
+
 #### OpenBSD
 (to be automated using hocho)
 
