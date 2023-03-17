@@ -59,7 +59,7 @@ git "chkbuild" do
 end
 
 case node[:platform]
-when 'fedora'
+when 'fedora', 'amazon'
   package 'cronie'
   package 'cronie-anacron'
   service 'crond' do
