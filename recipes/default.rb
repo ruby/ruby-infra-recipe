@@ -59,6 +59,8 @@ git "chkbuild" do
 end
 
 case node[:platform]
+when 'debian'
+  package 'cron'
 when 'fedora', 'amazon'
   package 'cronie'
   package 'cronie-anacron'
