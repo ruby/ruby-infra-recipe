@@ -38,7 +38,7 @@ pkg install sudo # then add NOPASSWD with visudo
 pkg install bash
 ```
 
-#### OpenBSD
+### OpenBSD
 (to be automated using hocho)
 
 ```bash
@@ -47,7 +47,7 @@ doas pkg_add bash
 doas pkg_add sudo # then add NOPASSWD to /etc/sudoers
 ```
 
-#### Funtoo
+### Funtoo
 
 ```bash
 # Try adding `package 'eix'` before all other `package` next time
