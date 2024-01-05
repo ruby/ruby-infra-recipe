@@ -30,6 +30,14 @@ You can confirm these repos with the following command.
 sudo yum repolist --all
 ```
 
+### FreeBSD
+(to be automated using hocho)
+
+```bash
+pkg install sudo # then add NOPASSWD with visudo
+pkg install bash
+```
+
 #### OpenBSD
 (to be automated using hocho)
 
