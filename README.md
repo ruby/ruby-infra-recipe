@@ -55,10 +55,6 @@ sudo emerge eix
 sudo eix-update # to be automated too
 ```
 
-### Ubuntu (jammy, arm64-neoverse-n1)
-
-We applied [a workaround](https://github.com/ruby/spec/issues/1095#issuecomment-1770537299) to setup `/etc/resolv.conf` properly in Ubuntu jammy on the arm64-neoverse-n1 server.
-
 ### Run hocho
 
 The specified domain is equivalent with the `Host <ip address>` in the `~/.ssh/config`.
