@@ -22,9 +22,9 @@ node.reverse_merge!(
   rbenv: {
     user: 'chkbuild',
     group: group,
-    global: '3.2.3',
+    global: '3.2.4',
     versions: %w[
-      3.2.3
+      3.2.4
     ],
     install_development_dependency: true,
   },
