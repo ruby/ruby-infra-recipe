@@ -42,4 +42,4 @@ DEPENDENCIES
   psych (~> 3.0)
 
 BUNDLED WITH
-   2.3.26
+   2.7.1
