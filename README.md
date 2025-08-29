@@ -18,10 +18,16 @@
 
 ### RHEL
 
-You should enable CodeReady Linux Builder repository.
+You should enable CodeReady Linux Builder repository for RHEL 9 or later.
 
 ```bash
-sudo yum-config-manager --enable codeready-builder-for-rhel-9-rhui-rpms
+sudo yum-config-manager --enable codeready-builder-for-rhel-$VERSION-rhui-rpms
+```
+
+or
+
+```bash
+sudo dnf config-manager --set-enabled codeready-builder-for-rhel-$VERSION-rhui-rpms
 ```
 
 You can confirm these repos with the following command.
