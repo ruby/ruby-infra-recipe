@@ -21,7 +21,6 @@ GEM
       net-ssh (>= 2.6.5, < 8.0.0)
     net-ssh (7.3.0)
     net-telnet (0.2.0)
-    psych (3.3.4)
     schash (0.1.2)
     sfl (2.3)
     specinfra (2.94.1)
@@ -39,7 +38,6 @@ DEPENDENCIES
   bcrypt_pbkdf
   ed25519
   hocho (>= 0.3.7)
-  psych (~> 3.0)
 
 BUNDLED WITH
    2.7.1
