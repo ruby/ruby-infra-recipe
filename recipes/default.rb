@@ -30,7 +30,7 @@ node.reverse_merge!(
   },
   'ruby-build': {
     build_envs: {
-      'RUBY_CONFIGURE_OPTS': '--disable-dtrace',
+      'RUBY_CONFIGURE_OPTS': '--disable-install-doc --disable-dtrace',
     },
   },
   'rbenv-default-gems': {
