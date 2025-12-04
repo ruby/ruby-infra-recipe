@@ -44,6 +44,11 @@ driver_options:
         aarch64)
           mitamae_arch="aarch64"
           ;;
+        arm64)
+          # freebsd aarch64 returns `arm64`
+          mitamae_arch="arm64"
+          mitamae_repo="itamae-kitchen/mitamae-build"
+          ;;
         ppc64le)
           mitamae_arch="ppc64le"
           mitamae_repo="itamae-kitchen/mitamae-build"
