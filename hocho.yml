@@ -18,11 +18,9 @@ driver_options:
           ;;
         FreeBSD)
           mitamae_os="freebsd"
-          mitamae_repo="itamae-kitchen/mitamae-build"
           ;;
         OpenBSD)
           mitamae_os="openbsd"
-          mitamae_repo="itamae-kitchen/mitamae-build"
           ;;
         SunOS)
           mitamae_os="solaris" # should be "sunos"?
@@ -46,16 +44,13 @@ driver_options:
           ;;
         arm64)
           # freebsd aarch64 returns `arm64`
-          mitamae_arch="arm64"
-          mitamae_repo="itamae-kitchen/mitamae-build"
+          mitamae_arch="aarch64"
           ;;
         ppc64le)
           mitamae_arch="ppc64le"
-          mitamae_repo="itamae-kitchen/mitamae-build"
           ;;
         s390x)
           mitamae_arch="s390x"
-          mitamae_repo="itamae-kitchen/mitamae-build"
           ;;
         *)
           echo "machine '$(uname -m)' is not supported yet"
@@ -73,21 +68,10 @@ driver_options:
         | cut -d '/' -f 3 | sort -Vr)
       for tag in ${tags}; do
         url="https://github.com/${mitamae_repo}/releases/download/${tag}/mitamae-${mitamae_arch}-${mitamae_os}"
-        # TODO: support .tar.gz in mitamae-build
-        if [[ $mitamae_repo == "itamae-kitchen/mitamae-build" ]]; then
-          # If the URL exists, download it.
-          if url_exists "${url}"; then
-            curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
-            echo "mitamae '${tag}' is downloaded"
-            break
-          fi
-        else
-          url="${url}.tar.gz"
-          if url_exists "${url}"; then
-            curl -fL "${url}" | tar xvz
-            echo "mitamae '${tag}' is downloaded"
-            break
-          fi
+        if url_exists "${url}"; then
+          curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
+          echo "mitamae '${tag}' is downloaded"
+          break
         fi
       done
 
