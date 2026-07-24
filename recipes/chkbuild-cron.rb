@@ -7,16 +7,32 @@ chkbuild = node[:chkbuild] || {}
 if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   crontab_path = "/home/chkbuild/.crontab"
 
+  # Interval per host is chosen so that one full chkbuild cycle (all branches)
+  # plus ~15min headroom fits within it; chkbuild aborts when the previous run
+  # still holds its lock, so an overlap loses a whole cycle.
+  schedule = chkbuild[:schedule] || '30 */3 * * *'
+
+  lines = [
+    'MAILTO=""',
+    "AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}",
+    "AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}",
+    "RUBYCI_NICKNAME=#{chkbuild[:nickname]}",
+  ]
+  if node[:platform] == 'freebsd' && node[:platform_version].to_i >= 15
+    # ruby built on FreeBSD 15 (pkgbase) does not find the system CA bundle
+    # by itself and every https access fails without this. Not needed on
+    # FreeBSD 14 and earlier.
+    lines << 'SSL_CERT_FILE=/usr/local/share/certs/ca-root-nss.crt'
+  end
+  lines << "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build"
+  lines << ''
+
+  # NOTE: no <<~ heredoc here; the mruby in mitamae <= 1.11 misparses it as
+  # `content << ~CRON` and dies with NameError.
   file crontab_path do
     owner 'chkbuild'
     mode '600'
-    content <<~CRON
-      MAILTO=""
-      AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}
-      AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}
-      RUBYCI_NICKNAME=#{chkbuild[:nickname]}
-      30 */3 * * * cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build
-    CRON
+    content lines.join("\n")
   end
 
   execute "crontab -u chkbuild #{crontab_path}" do

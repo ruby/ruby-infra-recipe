@@ -41,6 +41,21 @@ node.reverse_merge!(
   },
 )
 
+# mitamae's git resource cannot update a repo whose HEAD was moved off the
+# deploy branch (e.g. by a manual `git checkout master`): the stale deploy
+# branch makes `git checkout <sha> -b deploy` fail. Drop it beforehand.
+%w[
+  /home/chkbuild/.rbenv
+  /home/chkbuild/.rbenv/plugins/ruby-build
+  /home/chkbuild/.rbenv/plugins/rbenv-default-gems
+].each do |repo|
+  execute "remove stale deploy branch in #{repo}" do
+    command "git -C #{repo} branch -D deploy"
+    user 'chkbuild'
+    only_if "test \"$(git -C #{repo} rev-parse --abbrev-ref HEAD)\" != deploy && git -C #{repo} rev-parse -q --verify refs/heads/deploy"
+  end
+end
+
 include_recipe 'rbenv::user'
 
 file "/home/chkbuild/.bash_profile" do
