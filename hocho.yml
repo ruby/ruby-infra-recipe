@@ -79,7 +79,7 @@ driver_options:
 
       function url_exists {
         local url="${1}"
-        curl -o /dev/null -sIf "$url"
+        curl -o /dev/null -sIfL "$url"
       }
 
       # Get tags in new order. The newest tag is first, the oldest tag is last.
@@ -88,12 +88,21 @@ driver_options:
       for tag in ${tags}; do
         url="https://github.com/${mitamae_repo}/releases/download/${tag}/mitamae-${mitamae_arch}-${mitamae_os}"
         if url_exists "${url}"; then
-          curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"
-          echo "mitamae '${tag}' is downloaded"
-          break
+          # The shell redirection creates the file even when curl fails, and a
+          # truncated/empty mitamae would get installed and then silently
+          # "succeed" on every later run. Keep only a verified download.
+          if curl -fL "${url}" > "./mitamae-${mitamae_arch}-${mitamae_os}"; then
+            echo "mitamae '${tag}' is downloaded"
+            break
+          fi
+          rm -f "./mitamae-${mitamae_arch}-${mitamae_os}"
         fi
       done
 
+      if [ ! -s "mitamae-${mitamae_arch}-${mitamae_os}" ]; then
+        echo "failed to download mitamae" >&2
+        exit 1
+      fi
       mv "mitamae-${mitamae_arch}-${mitamae_os}" /usr/local/bin/mitamae
       chmod +x /usr/local/bin/mitamae
       /usr/local/bin/mitamae version
