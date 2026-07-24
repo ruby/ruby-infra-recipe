@@ -73,7 +73,7 @@ CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho appl
 
 ### crossruby toolchains
 
-When `attributes.chkbuild.command` is `start-cross-rubyci`, `recipes/crossruby.rb` installs the cross toolchains on top of the common setup: the Ubuntu cross gcc packages for the linux/mingw targets, emscripten, and the WASI SDK and Android NDK under `/home/chkbuild/opt`. The WASI SDK and NDK versions are pinned in the recipe and must match the `WASI_SDK_PATH` and NDK `PATH` prefix in `attributes.chkbuild.command_env` in `hosts.yml`.
+When `attributes.chkbuild.command` is `start-cross-rubyci`, `recipes/crossruby.rb` installs the cross toolchains on top of the common setup: the Ubuntu cross gcc packages for the linux/mingw targets, emscripten, and the WASI SDK and Android NDK under `/home/chkbuild/opt`. The WASI SDK and NDK versions are resolved to the latest stable GitHub release at every apply, and the version-independent symlinks `/home/chkbuild/opt/wasi-sdk` and `/home/chkbuild/opt/android-ndk` are pointed at them, so the crontab paths in `attributes.chkbuild.command_env` never change. Superseded toolchain versions are removed, except directories still referenced by the installed crontab (an apply without AWS credentials leaves the crontab untouched, and its toolchains must survive until the next apply with credentials).
 
 ### All chkbuild
 
