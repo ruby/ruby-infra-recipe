@@ -1,3 +1,4 @@
+include_recipe "hostname"
 include_recipe "setup-users"
 
 user 'chkbuild' do

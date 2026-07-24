@@ -15,6 +15,7 @@ property_providers:
         # NOTE: assign, then re-read; Hashie::Mash stores a converted copy,
         # so mutating the right-hand value of `||=` would be lost.
         host.properties[:attributes] ||= {}
+        host.properties[:attributes][:fqdn] = host.name
         host.properties[:attributes][:chkbuild] = chkbuild
 
 driver_options:
