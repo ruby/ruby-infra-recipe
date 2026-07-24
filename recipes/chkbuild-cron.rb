@@ -22,14 +22,8 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
     "AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}",
     "RUBYCI_NICKNAME=#{chkbuild[:nickname]}",
   ]
-  if node[:platform] == 'freebsd' && node[:platform_version].to_i >= 15
-    # ruby built on FreeBSD 15 (pkgbase) does not find the system CA bundle
-    # by itself and every https access fails without this. Not needed on
-    # FreeBSD 14 and earlier.
-    lines << 'SSL_CERT_FILE=/usr/local/share/certs/ca-root-nss.crt'
-  end
   # Extra per-host environment lines (attributes.chkbuild.env in hosts.yml),
-  # e.g. LC_ALL/DFLTCC on s390x.
+  # e.g. LC_ALL/DFLTCC on s390x, SSL_CERT_FILE on FreeBSD 15.
   (chkbuild[:env] || {}).each do |key, value|
     lines << "#{key}=#{value}"
   end
