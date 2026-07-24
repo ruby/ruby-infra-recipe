@@ -16,6 +16,13 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   # ruby branches with start-rubyci.
   command = chkbuild[:command] || 'start-rubyci'
 
+  # Inline environment prepended to the build command
+  # (attributes.chkbuild.command_env in hosts.yml), e.g. the android NDK
+  # PATH prefix on crossruby. Unlike env above these go on the command line
+  # because cron takes crontab environment lines literally; values that
+  # reference $PATH need the shell expansion they get here.
+  command_prefix = (chkbuild[:command_env] || {}).map {|key, value| "#{key}=#{value} " }.join
+
   lines = [
     'MAILTO=""',
     "AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}",
@@ -27,13 +34,13 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   (chkbuild[:env] || {}).each do |key, value|
     lines << "#{key}=#{value}"
   end
-  lines << "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
+  lines << "#{schedule} cd ~/chkbuild && git pull origin master && #{command_prefix}~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
   # Additional chkbuild checkouts on the same host
   # (attributes.chkbuild.extra_builds in hosts.yml), e.g. ~/chkbuild-no-yjit
   # reporting as ubuntu-no-yjit. RUBYCI_NICKNAME is overridden per line
   # because the global assignment above names the primary build.
   (chkbuild[:extra_builds] || []).each do |extra|
-    lines << "#{extra[:schedule]} cd ~/#{extra[:dir]} && git pull origin master && RUBYCI_NICKNAME=#{extra[:nickname]} ~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
+    lines << "#{extra[:schedule]} cd ~/#{extra[:dir]} && git pull origin master && RUBYCI_NICKNAME=#{extra[:nickname]} #{command_prefix}~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
   end
   lines << ''
 
