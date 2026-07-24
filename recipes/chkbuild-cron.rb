@@ -12,16 +12,19 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   # still holds its lock, so an overlap loses a whole cycle.
   schedule = chkbuild[:schedule] || '30 */3 * * *'
 
+  # NOTE: no <<~ heredoc here; the mruby in mitamae <= 1.11 misparses it as
+  # `content << ~CRON` and dies with NameError.
   file crontab_path do
     owner 'chkbuild'
     mode '600'
-    content <<~CRON
-      MAILTO=""
-      AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}
-      AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}
-      RUBYCI_NICKNAME=#{chkbuild[:nickname]}
-      #{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build
-    CRON
+    content [
+      'MAILTO=""',
+      "AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}",
+      "AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}",
+      "RUBYCI_NICKNAME=#{chkbuild[:nickname]}",
+      "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build",
+      '',
+    ].join("\n")
   end
 
   execute "crontab -u chkbuild #{crontab_path}" do
