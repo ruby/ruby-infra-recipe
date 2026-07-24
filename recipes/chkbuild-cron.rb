@@ -12,19 +12,22 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   # still holds its lock, so an overlap loses a whole cycle.
   schedule = chkbuild[:schedule] || '30 */3 * * *'
 
+  # e.g. crossruby builds cross targets with start-cross-rubyci, not plain
+  # ruby branches with start-rubyci.
+  command = chkbuild[:command] || 'start-rubyci'
+
   lines = [
     'MAILTO=""',
     "AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}",
     "AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}",
     "RUBYCI_NICKNAME=#{chkbuild[:nickname]}",
   ]
-  if node[:platform] == 'freebsd' && node[:platform_version].to_i >= 15
-    # ruby built on FreeBSD 15 (pkgbase) does not find the system CA bundle
-    # by itself and every https access fails without this. Not needed on
-    # FreeBSD 14 and earlier.
-    lines << 'SSL_CERT_FILE=/usr/local/share/certs/ca-root-nss.crt'
+  # Extra per-host environment lines (attributes.chkbuild.env in hosts.yml),
+  # e.g. LC_ALL/DFLTCC on s390x, SSL_CERT_FILE on FreeBSD 15.
+  (chkbuild[:env] || {}).each do |key, value|
+    lines << "#{key}=#{value}"
   end
-  lines << "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build"
+  lines << "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
   lines << ''
 
   # NOTE: no <<~ heredoc here; the mruby in mitamae <= 1.11 misparses it as
