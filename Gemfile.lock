@@ -35,6 +35,7 @@ GEM
 
 PLATFORMS
   ruby
+  x64-mswin64
 
 DEPENDENCIES
   bcrypt_pbkdf
