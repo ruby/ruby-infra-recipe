@@ -1,10 +1,10 @@
-# Intel oneAPI toolkits for icc.rubyci.org. chkbuild builds ruby with icx
+# Intel oneAPI toolkit for icc.rubyci.org. chkbuild builds ruby with icx
 # (see attributes.chkbuild in hosts.yml: RUBYCI_NICKNAME=icc-x64 plus the
 # PATH/LD_LIBRARY_PATH pointing into /opt/intel/oneapi). The compiler comes
-# from Intel's apt repository, not Ubuntu; intel-basekit provides icx/icpx
-# and intel-hpckit adds ifx and MPI, matching what was installed by hand on
-# the current host. The /opt/intel/oneapi/compiler/latest symlink referenced
-# by the crontab is maintained by the packages themselves.
+# from Intel's apt repository, not Ubuntu; icx/icpx and their runtime
+# (libimf, libsvml, ...) come from intel-oneapi-compiler-dpcpp-cpp, pulled
+# in by intel-basekit. The /opt/intel/oneapi/compiler/latest symlink
+# referenced by the crontab is maintained by the packages themselves.
 
 keyring = '/usr/share/keyrings/oneapi-archive-keyring.gpg'
 
@@ -28,4 +28,3 @@ execute 'apt-get update' do
 end
 
 package 'intel-basekit'
-package 'intel-hpckit'
