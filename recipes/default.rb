@@ -100,4 +100,10 @@ when 'gentoo'
   end
 end
 
+# The host running start-cross-rubyci needs the cross toolchains (cross gcc,
+# emscripten, WASI SDK, android NDK) on top of the common setup above.
+if (node[:chkbuild] || {})[:command] == 'start-cross-rubyci'
+  include_recipe "crossruby"
+end
+
 include_recipe "chkbuild-cron"
