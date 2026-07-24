@@ -65,15 +65,32 @@ CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho appl
 
 ### All chkbuild
 
+`bin/all-hosts` runs a command for every host in `hosts.yml` in parallel, appending the host name as the last argument. Full per-host output goes to `$TMPDIR/all-hosts-<timestamp>/<host>.log` and a summary is printed at the end. Use `-j N` to limit concurrency.
+
 ```bash
-# check if you can login
-for i in $(bin/hosts); do bash -cx "ssh ${i} echo OK"; done
+# check if you can login (the host name is appended as the last argument)
+bin/all-hosts sh -c 'ssh -o BatchMode=yes "$0" echo OK'
 
 # dry-run
-for i in $(bin/hosts); do bundle exec hocho apply -n "${i}"; done
+bin/all-hosts bin/hocho apply -n
 
 # apply
-for i in $(bin/hosts); do bundle exec hocho apply "${i}"; done
+bin/all-hosts bin/hocho apply
+```
+
+### OS updates
+
+`bin/os-update` runs OS package updates on a single host over ssh. It detects the platform on the host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update). OpenBSD is updated by its own maintainer and is always skipped. Reboots are never performed; the final output line reports whether one is needed.
+
+```bash
+# check for pending updates only
+bin/os-update -n fedora43.rubyci.org
+
+# apply updates
+bin/os-update fedora43.rubyci.org
+
+# all hosts
+bin/all-hosts bin/os-update
 ```
 
 ## License
