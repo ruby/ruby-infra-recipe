@@ -28,6 +28,13 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
     lines << "#{key}=#{value}"
   end
   lines << "#{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
+  # Additional chkbuild checkouts on the same host
+  # (attributes.chkbuild.extra_builds in hosts.yml), e.g. ~/chkbuild-no-yjit
+  # reporting as ubuntu-no-yjit. RUBYCI_NICKNAME is overridden per line
+  # because the global assignment above names the primary build.
+  (chkbuild[:extra_builds] || []).each do |extra|
+    lines << "#{extra[:schedule]} cd ~/#{extra[:dir]} && git pull origin master && RUBYCI_NICKNAME=#{extra[:nickname]} ~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
+  end
   lines << ''
 
   # NOTE: no <<~ heredoc here; the mruby in mitamae <= 1.11 misparses it as
