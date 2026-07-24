@@ -1,0 +1,66 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Run a command for every host in hosts.yml, appending the host name as the
+# last argument.
+#
+# Usage: bin/all-hosts [-j N] <command> [args...]
+#   -j N  run at most N hosts at a time (default: all in parallel)
+#
+#   bin/all-hosts bin/os-update -n
+#   bin/all-hosts bin/hocho apply
+#
+# Full per-host output goes to $TMPDIR/all-hosts-<timestamp>/<host>.log and a
+# summary with each host's exit status and last output line is printed at the
+# end. Exits non-zero if the command failed on any host.
+
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'yaml'
+
+jobs = nil
+opt = OptionParser.new
+opt.banner = 'usage: bin/all-hosts [-j N] <command> [args...]'
+opt.on('-j N', Integer, 'run at most N hosts at a time') { |n| jobs = n }
+command = opt.order(ARGV)
+abort opt.banner if command.empty?
+
+Dir.chdir(File.expand_path('..', __dir__))
+hosts = YAML.load_file('hosts.yml').keys
+
+log_dir = File.join(ENV['TMPDIR'] || '/tmp', "all-hosts-#{Time.now.strftime('%Y%m%d-%H%M%S')}")
+FileUtils.mkdir_p(log_dir)
+
+queue = Queue.new
+hosts.each { |host| queue << host }
+results = {}
+mutex = Mutex.new
+
+threads = Array.new([jobs || hosts.size, hosts.size].min) do
+  Thread.new do
+    until queue.empty?
+      host = begin
+        queue.pop(true)
+      rescue ThreadError
+        break
+      end
+      out, status = Open3.capture2e(*command, host)
+      File.write(File.join(log_dir, "#{host}.log"), out)
+      last_line = out.lines.map(&:chomp).reject(&:empty?).last.to_s
+      result = status.success? ? 'ok' : "FAILED(#{status.exitstatus})"
+      mutex.synchronize { results[host] = [result, last_line] }
+      warn format('%-34s %-12s %s', host, result, last_line)
+    end
+  end
+end
+threads.each(&:join)
+
+puts
+puts format('%-34s %-12s %s', 'HOST', 'EXIT', 'LAST LINE')
+hosts.each do |host|
+  result, last_line = results[host]
+  puts format('%-34s %-12s %s', host, result, last_line)
+end
+puts
+puts "logs: #{log_dir}"
+exit 1 if results.any? { |_, (result, _)| result != 'ok' }

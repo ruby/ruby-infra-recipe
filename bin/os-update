@@ -1,38 +1,27 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-# Run OS package updates on hosts in hosts.yml in parallel over ssh.
+# Run OS package updates on a single host over ssh.
 #
-# Usage: bin/os-update [-n] [host ...]
+# Usage: bin/os-update [-n] <host>
 #   -n  check for pending updates only, do not apply
 #
 # Connects as your own user (same as bin/hocho) and relies on NOPASSWD sudo.
-# Full per-host output goes to $TMPDIR/os-update-<timestamp>/<host>.log and
-# a one-line-per-host summary is printed at the end. Reboots are never
-# performed automatically; hosts that need one are reported as "reboot".
+# Reboots are never performed; the final line reports whether one is needed.
+# Use `bin/all-hosts bin/os-update` to run this on every host in hosts.yml.
 
-require 'fileutils'
-require 'open3'
 require 'optparse'
-require 'yaml'
 
 mode = 'apply'
 opt = OptionParser.new
-opt.banner = 'usage: bin/os-update [-n] [host ...]'
+opt.banner = 'usage: bin/os-update [-n] <host>'
 opt.on('-n', 'check for pending updates only') { mode = 'check' }
-filter = opt.parse(ARGV)
+args = opt.parse(ARGV)
+abort opt.banner unless args.size == 1
+host = args.first
 
-Dir.chdir(File.expand_path('..', __dir__))
-hosts = YAML.load_file('hosts.yml').keys
-unless filter.empty?
-  unknown = filter - hosts
-  abort "error: unknown host(s): #{unknown.join(', ')}" unless unknown.empty?
-  hosts = filter
-end
-
-# Streamed to each host via `ssh <host> sh -s`. POSIX sh: no local, no arrays.
-# The wrapper prepends MODE=apply|check. Markers on stdout report the result:
-#   OSUPDATE:STATUS:clean|pending|updated|skipped
-#   OSUPDATE:REBOOT:yes|no
+# Streamed to the host via `ssh <host> sh -s`. POSIX sh: no local, no arrays.
+# The wrapper prepends MODE=apply|check. The last line reports the result:
+#   os-update: status=clean|pending|updated|skipped reboot=yes|no
 REMOTE_SCRIPT = <<~'SH'
   set -u
   export LC_ALL=C
@@ -158,40 +147,14 @@ REMOTE_SCRIPT = <<~'SH'
   elif [ "$pending" = yes ]; then status=pending
   else status=clean
   fi
-  echo "OSUPDATE:STATUS:$status"
-  echo "OSUPDATE:REBOOT:$reboot"
+  echo "os-update: status=$status reboot=$reboot"
 SH
 
-log_dir = File.join(ENV['TMPDIR'] || '/tmp', "os-update-#{Time.now.strftime('%Y%m%d-%H%M%S')}")
-FileUtils.mkdir_p(log_dir)
 ssh_opts = %w[-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30]
-
-threads = hosts.map do |host|
-  Thread.new do
-    out, ssh_status = Open3.capture2e('ssh', *ssh_opts, host, 'sh -s',
-                                      stdin_data: "MODE=#{mode}\n#{REMOTE_SCRIPT}")
-    File.write(File.join(log_dir, "#{host}.log"), out)
-    status = out[/^OSUPDATE:STATUS:(\S+)/, 1]
-    reboot = out[/^OSUPDATE:REBOOT:(\S+)/, 1]
-    result =
-      if ssh_status.exitstatus == 255
-        'UNREACHABLE'
-      elsif !ssh_status.success? || status.nil?
-        'FAILED'
-      else
-        status
-      end
-    warn format('%-34s %s', host, result)
-    [host, result, reboot]
-  end
-end
-results = threads.map(&:value)
-
-puts
-puts format('%-34s %-12s %s', 'HOST', 'STATUS', 'REBOOT')
-results.each do |host, result, reboot|
-  puts format('%-34s %-12s %s', host, result, reboot == 'yes' ? 'required' : '')
-end
-puts
-puts "logs: #{log_dir}"
-exit 1 if results.any? { |_, result, _| %w[FAILED UNREACHABLE].include?(result) }
+reader, writer = IO.pipe
+pid = spawn('ssh', *ssh_opts, host, 'sh -s', in: reader)
+reader.close
+writer.write("MODE=#{mode}\n#{REMOTE_SCRIPT}")
+writer.close
+Process.wait(pid)
+exit $?.exitstatus
