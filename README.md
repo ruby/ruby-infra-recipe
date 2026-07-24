@@ -3,46 +3,25 @@
 ## Usage
 
 ### Prepare environment for hocho apply
-(some of them are to be automated using hocho)
 
-1. Add the ssh configuration to `~/.ssh/config` for your machine as follows. The `Host <ip address>` is used as an argument of the `hocho apply` later.
-
-    ```
-    Host debian.rubyci.org
-      User=<user>
-      IdentityFile <path to key>
-    ```
-
-2. Install `which`, `curl`, `git` and `rsync` commands in the target VM server.
-3. Add the `NOPASSWD` option to `/etc/sudoers` for your logined user in the target VM server.
-
-### RHEL
-
-You should enable CodeReady Linux Builder repository for RHEL 9 or later.
+After launching a VM and assigning the Elastic IP (DNS records are managed under `dns/`), bootstrap the host with the cloud image's default user:
 
 ```bash
-sudo yum-config-manager --enable codeready-builder-for-rhel-$VERSION-rhui-rpms
+bin/bootstrap -i ~/.ssh/aws-keypair.pem fedora@fedora44-arm.rubyci.org
 ```
 
-or
+The `-i` key is the AWS keypair injected at instance launch. Omit it if the keypair is available via your ssh agent.
 
-```bash
-sudo dnf config-manager --set-enabled codeready-builder-for-rhel-$VERSION-rhui-rpms
-```
+This streams `bin/bootstrap-remote.sh` over ssh and automates the previous manual steps:
 
-You can confirm these repos with the following command.
+- installs `which`, `curl`, `git` and `rsync`
+- creates your admin user with `recipes/keys/<you>.keys` and NOPASSWD sudo
+- enables CodeReady Linux Builder repository on RHEL
+- installs `sudo` and `bash` on FreeBSD
 
-```bash
-sudo yum repolist --all
-```
+No `~/.ssh/config` entry is needed. After bootstrap, `bin/hocho apply` connects as your own user. If the Elastic IP was reused from another host, remove the stale host key with `ssh-keygen -R <host>` first.
 
-### FreeBSD
-(to be automated using hocho)
-
-```bash
-pkg install sudo # then add NOPASSWD with visudo
-pkg install bash
-```
+Supported platforms: Fedora, RHEL, CentOS, Amazon Linux, Debian, Ubuntu, openSUSE, Arch and FreeBSD. Use the manual steps below for the others.
 
 ### OpenBSD
 (to be automated using hocho)

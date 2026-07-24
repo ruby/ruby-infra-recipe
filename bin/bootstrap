@@ -1,0 +1,73 @@
+#!/bin/bash
+# Bootstrap a freshly launched VM so that `bin/hocho apply` can run against it.
+# Automates the manual steps in README.md: installs base packages, creates the
+# admin user with keys from recipes/keys/, and sets up NOPASSWD sudo.
+#
+# Usage: bin/bootstrap [-i identity_file] <initial_user>@<host> [<admin_user>]
+#   e.g. bin/bootstrap -i ~/.ssh/aws-keypair.pem fedora@fedora44-arm.rubyci.org
+#
+# <initial_user> is the cloud image's default user (fedora, ec2-user, admin, ...)
+# and authenticates with the AWS keypair injected at instance launch, given
+# with -i (omit it if the keypair is available via your ssh agent).
+# <admin_user> defaults to $USER and must have recipes/keys/<admin_user>.keys.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+usage="usage: bin/bootstrap [-i identity_file] <initial_user>@<host> [<admin_user>]"
+
+identity=""
+while getopts i: opt; do
+  case "$opt" in
+  i) identity="$OPTARG" ;;
+  *) echo "$usage" >&2; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+target="${1:?${usage}}"
+admin="${2:-$USER}"
+host="${target#*@}"
+keyfile="recipes/keys/${admin}.keys"
+
+if [[ ! -f "$keyfile" ]]; then
+  echo "error: ${keyfile} not found" >&2
+  exit 1
+fi
+
+ssh_opts=(-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new)
+init_opts=("${ssh_opts[@]}")
+if [[ -n "$identity" ]]; then
+  init_opts+=(-i "$identity" -o IdentitiesOnly=yes)
+fi
+
+echo "Waiting for sshd on ${target} ..."
+for i in {1..30}; do
+  if ssh "${init_opts[@]}" "$target" true 2>/dev/null; then
+    break
+  fi
+  if [[ $i -eq 30 ]]; then
+    echo "error: cannot reach ${target} via ssh" >&2
+    echo "hint: if the Elastic IP was reused, run: ssh-keygen -R ${host}" >&2
+    exit 1
+  fi
+  sleep 10
+done
+
+echo "Bootstrapping ${host} (admin user: ${admin}) ..."
+{
+  printf 'admin=%q\n' "$admin"
+  cat bin/bootstrap-remote.sh
+  echo "install_keys <<'BOOTSTRAP_KEYS'"
+  cat "$keyfile"
+  echo "BOOTSTRAP_KEYS"
+} | ssh "${init_opts[@]}" "$target" 'sudo -n sh -s'
+
+echo "Verifying login as ${admin}@${host} ..."
+ssh "${ssh_opts[@]}" -o BatchMode=yes -l "$admin" "$host" 'sudo -n echo OK'
+
+cat <<NEXT
+Done. Next steps:
+  bin/hocho apply -n ${host}
+  bin/hocho apply ${host}
+NEXT
