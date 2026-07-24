@@ -59,6 +59,8 @@ bin/hocho apply debian.rubyci.org
 
 The chkbuild user's crontab is installed only when AWS credentials are given via environment variables at apply time. Without them the crontab is left untouched. `RUBYCI_NICKNAME` is derived from the host name (e.g. `fedora44-arm`).
 
+The cron interval defaults to every 3 hours and can be overridden per host with `attributes.chkbuild.schedule` in `hosts.yml`. The interval is sized from the measured duration of one full chkbuild cycle (all branches) on rubyci.org plus ~15 minutes of headroom, since chkbuild aborts when the previous run still holds its lock.
+
 ```bash
 CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho apply fedora44-arm.rubyci.org
 ```

@@ -7,6 +7,11 @@ chkbuild = node[:chkbuild] || {}
 if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
   crontab_path = "/home/chkbuild/.crontab"
 
+  # Interval per host is chosen so that one full chkbuild cycle (all branches)
+  # plus ~15min headroom fits within it; chkbuild aborts when the previous run
+  # still holds its lock, so an overlap loses a whole cycle.
+  schedule = chkbuild[:schedule] || '30 */3 * * *'
+
   file crontab_path do
     owner 'chkbuild'
     mode '600'
@@ -15,7 +20,7 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
       AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}
       AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}
       RUBYCI_NICKNAME=#{chkbuild[:nickname]}
-      30 */3 * * * cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build
+      #{schedule} cd ~/chkbuild && git pull origin master && ~/.rbenv/shims/ruby start-rubyci && rm -rf tmp/build
     CRON
   end
 

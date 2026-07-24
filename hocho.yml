@@ -7,7 +7,11 @@ property_providers:
   - ruby_script:
       script: |
         return unless host.name.end_with?('.rubyci.org')
-        chkbuild = { nickname: host.name.split('.').first }
+        # Keep per-host chkbuild attributes from hosts.yml (e.g. schedule)
+        # and add the derived/injected values on top (Hashie::Mash, so
+        # indifferent access).
+        chkbuild = host.properties.dig(:attributes, :chkbuild) || {}
+        chkbuild[:nickname] = host.name.split('.').first
         if ENV['CHKBUILD_AWS_ACCESS_KEY_ID'] && ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
           chkbuild[:aws_access_key_id] = ENV['CHKBUILD_AWS_ACCESS_KEY_ID']
           chkbuild[:aws_secret_access_key] = ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
