@@ -55,6 +55,14 @@ bin/hocho apply -n debian.rubyci.org
 bin/hocho apply debian.rubyci.org
 ```
 
+### chkbuild crontab
+
+The chkbuild user's crontab is installed only when AWS credentials are given via environment variables at apply time. Without them the crontab is left untouched. `RUBYCI_NICKNAME` is derived from the host name (e.g. `fedora44-arm`).
+
+```bash
+CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho apply fedora44-arm.rubyci.org
+```
+
 ### All chkbuild
 
 ```bash

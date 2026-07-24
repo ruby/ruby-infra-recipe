@@ -83,3 +83,5 @@ when 'gentoo'
     action [:enable, :start]
   end
 end
+
+include_recipe "chkbuild-cron"
