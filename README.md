@@ -76,6 +76,23 @@ for i in $(bin/hosts); do bundle exec hocho apply -n "${i}"; done
 for i in $(bin/hosts); do bundle exec hocho apply "${i}"; done
 ```
 
+### OS updates
+
+`bin/os-update` runs OS package updates on every host in `hosts.yml` in parallel over ssh. It detects the platform on each host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update, syspatch + pkg_add). Reboots are never performed automatically; hosts that need one are reported in the summary.
+
+```bash
+# check for pending updates only
+bin/os-update -n
+
+# apply updates on all hosts
+bin/os-update
+
+# apply updates on specific hosts
+bin/os-update fedora43.rubyci.org ubuntu2404.rubyci.org
+```
+
+Full per-host output is written to `$TMPDIR/os-update-<timestamp>/<host>.log`.
+
 ## License
 
 [Ruby License](https://www.ruby-lang.org/en/about/license.txt)

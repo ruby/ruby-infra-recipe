@@ -1,0 +1,213 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Run OS package updates on hosts in hosts.yml in parallel over ssh.
+#
+# Usage: bin/os-update [-n] [host ...]
+#   -n  check for pending updates only, do not apply
+#
+# Connects as your own user (same as bin/hocho) and relies on NOPASSWD sudo.
+# Full per-host output goes to $TMPDIR/os-update-<timestamp>/<host>.log and
+# a one-line-per-host summary is printed at the end. Reboots are never
+# performed automatically; hosts that need one are reported as "reboot".
+
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'yaml'
+
+mode = 'apply'
+opt = OptionParser.new
+opt.banner = 'usage: bin/os-update [-n] [host ...]'
+opt.on('-n', 'check for pending updates only') { mode = 'check' }
+filter = opt.parse(ARGV)
+
+Dir.chdir(File.expand_path('..', __dir__))
+hosts = YAML.load_file('hosts.yml').keys
+unless filter.empty?
+  unknown = filter - hosts
+  abort "error: unknown host(s): #{unknown.join(', ')}" unless unknown.empty?
+  hosts = filter
+end
+
+# Streamed to each host via `ssh <host> sh -s`. POSIX sh: no local, no arrays.
+# The wrapper prepends MODE=apply|check. Markers on stdout report the result:
+#   OSUPDATE:STATUS:clean|pending|updated|skipped
+#   OSUPDATE:REBOOT:yes|no
+REMOTE_SCRIPT = <<~'SH'
+  set -u
+  export LC_ALL=C
+  pending=no updated=no skipped=no reboot=no
+
+  run() { echo "+ sudo $*"; sudo -n "$@"; }
+
+  update_rpm() {
+    pkg=dnf
+    command -v dnf >/dev/null 2>&1 || pkg=yum
+    sudo -n "$pkg" -q check-update
+    case $? in
+    0) ;;
+    100)
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        run "$pkg" -y upgrade || exit 1
+        updated=yes
+      fi
+      ;;
+    *) exit 1 ;;
+    esac
+    if command -v needs-restarting >/dev/null 2>&1; then
+      sudo -n needs-restarting -r >/dev/null 2>&1 || reboot=yes
+    fi
+  }
+
+  update_deb() {
+    run apt-get -q update || exit 1
+    sim=$(sudo -n apt-get -qs dist-upgrade) || exit 1
+    echo "$sim" | grep '^Inst '
+    if [ "$(echo "$sim" | grep -c '^Inst ')" -gt 0 ]; then
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        run env DEBIAN_FRONTEND=noninteractive apt-get -y \
+          -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
+          dist-upgrade || exit 1
+        updated=yes
+      fi
+    fi
+    [ -f /var/run/reboot-required ] && reboot=yes
+  }
+
+  update_suse() {
+    run zypper --non-interactive refresh || exit 1
+    lu=$(sudo -n zypper --non-interactive list-updates) || exit 1
+    echo "$lu"
+    if ! echo "$lu" | grep -q 'No updates found'; then
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        run zypper --non-interactive update
+        rc=$?
+        # zypper exit codes >= 100 are informational, not errors
+        [ "$rc" -eq 0 ] || [ "$rc" -ge 100 ] || exit 1
+        updated=yes
+      fi
+    fi
+    sudo -n zypper needs-rebooting >/dev/null 2>&1
+    [ $? -eq 102 ] && reboot=yes
+  }
+
+  update_arch() {
+    run pacman -Sy --noconfirm || exit 1
+    if pacman -Qu; then
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        # refresh the keyring first so signatures on long-idle hosts verify
+        run pacman -S --needed --noconfirm archlinux-keyring || exit 1
+        run pacman -Su --noconfirm || exit 1
+        updated=yes
+      fi
+    fi
+  }
+
+  update_freebsd() {
+    run pkg update -q || exit 1
+    sim=$(sudo -n pkg upgrade -n 2>&1)
+    echo "$sim"
+    # "up to date" also appears in the repository catalogue messages, so
+    # detect pending work by the action summary lines instead
+    if echo "$sim" | grep -q '^Number of packages to be'; then
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        run pkg upgrade -y || exit 1
+        updated=yes
+      fi
+    fi
+    # base system: best effort, freebsd-update is unsupported on STABLE/CURRENT
+    if fu=$(sudo -n env PAGER=cat freebsd-update --not-running-from-cron fetch 2>&1); then
+      echo "$fu"
+      if sudo -n freebsd-update updatesready >/dev/null 2>&1; then
+        pending=yes
+        if [ "$MODE" = apply ]; then
+          run env PAGER=cat freebsd-update install || exit 1
+          updated=yes reboot=yes
+        fi
+      fi
+    else
+      echo "freebsd-update skipped: $fu"
+    fi
+  }
+
+  update_openbsd() {
+    sp=$(sudo -n syspatch -c 2>&1) || true
+    echo "$sp"
+    if [ -n "$sp" ]; then
+      pending=yes
+      if [ "$MODE" = apply ]; then
+        run syspatch || exit 1
+        updated=yes reboot=yes
+      fi
+    fi
+    if [ "$MODE" = apply ]; then
+      run pkg_add -u || exit 1
+    else
+      sudo -n pkg_add -u -n || exit 1
+    fi
+  }
+
+  echo "== $(hostname) / $(uname -srm) / mode=$MODE"
+  case "$(uname -s)" in
+  Linux)
+    . /etc/os-release
+    case "$ID" in
+    fedora|rhel|centos|almalinux|rocky|amzn) update_rpm ;;
+    debian|ubuntu) update_deb ;;
+    opensuse*|sles|sled) update_suse ;;
+    arch) update_arch ;;
+    *) echo "unsupported Linux distribution: $ID"; skipped=yes ;;
+    esac
+    ;;
+  FreeBSD) update_freebsd ;;
+  OpenBSD) update_openbsd ;;
+  *) echo "unsupported OS: $(uname -s)"; skipped=yes ;;
+  esac
+
+  if [ "$skipped" = yes ]; then status=skipped
+  elif [ "$updated" = yes ]; then status=updated
+  elif [ "$pending" = yes ]; then status=pending
+  else status=clean
+  fi
+  echo "OSUPDATE:STATUS:$status"
+  echo "OSUPDATE:REBOOT:$reboot"
+SH
+
+log_dir = File.join(ENV['TMPDIR'] || '/tmp', "os-update-#{Time.now.strftime('%Y%m%d-%H%M%S')}")
+FileUtils.mkdir_p(log_dir)
+ssh_opts = %w[-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30]
+
+threads = hosts.map do |host|
+  Thread.new do
+    out, ssh_status = Open3.capture2e('ssh', *ssh_opts, host, 'sh -s',
+                                      stdin_data: "MODE=#{mode}\n#{REMOTE_SCRIPT}")
+    File.write(File.join(log_dir, "#{host}.log"), out)
+    status = out[/^OSUPDATE:STATUS:(\S+)/, 1]
+    reboot = out[/^OSUPDATE:REBOOT:(\S+)/, 1]
+    result =
+      if ssh_status.exitstatus == 255
+        'UNREACHABLE'
+      elsif !ssh_status.success? || status.nil?
+        'FAILED'
+      else
+        status
+      end
+    warn format('%-34s %s', host, result)
+    [host, result, reboot]
+  end
+end
+results = threads.map(&:value)
+
+puts
+puts format('%-34s %-12s %s', 'HOST', 'STATUS', 'REBOOT')
+results.each do |host, result, reboot|
+  puts format('%-34s %-12s %s', host, result, reboot == 'yes' ? 'required' : '')
+end
+puts
+puts "logs: #{log_dir}"
+exit 1 if results.any? { |_, result, _| %w[FAILED UNREACHABLE].include?(result) }
