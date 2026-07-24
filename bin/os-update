@@ -135,23 +135,6 @@ REMOTE_SCRIPT = <<~'SH'
     fi
   }
 
-  update_openbsd() {
-    sp=$(sudo -n syspatch -c 2>&1) || true
-    echo "$sp"
-    if [ -n "$sp" ]; then
-      pending=yes
-      if [ "$MODE" = apply ]; then
-        run syspatch || exit 1
-        updated=yes reboot=yes
-      fi
-    fi
-    if [ "$MODE" = apply ]; then
-      run pkg_add -u || exit 1
-    else
-      sudo -n pkg_add -u -n || exit 1
-    fi
-  }
-
   echo "== $(hostname) / $(uname -srm) / mode=$MODE"
   case "$(uname -s)" in
   Linux)
@@ -165,7 +148,8 @@ REMOTE_SCRIPT = <<~'SH'
     esac
     ;;
   FreeBSD) update_freebsd ;;
-  OpenBSD) update_openbsd ;;
+  # OpenBSD is updated by its own maintainer; never touch it from here
+  OpenBSD) echo "OpenBSD is maintained by hand; skipping"; skipped=yes ;;
   *) echo "unsupported OS: $(uname -s)"; skipped=yes ;;
   esac
 

@@ -78,7 +78,7 @@ for i in $(bin/hosts); do bundle exec hocho apply "${i}"; done
 
 ### OS updates
 
-`bin/os-update` runs OS package updates on every host in `hosts.yml` in parallel over ssh. It detects the platform on each host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update, syspatch + pkg_add). Reboots are never performed automatically; hosts that need one are reported in the summary.
+`bin/os-update` runs OS package updates on every host in `hosts.yml` in parallel over ssh. It detects the platform on each host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update). OpenBSD is updated by its own maintainer and is always skipped. Reboots are never performed automatically; hosts that need one are reported in the summary.
 
 ```bash
 # check for pending updates only
