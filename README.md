@@ -61,7 +61,7 @@ The chkbuild user's crontab is installed only when AWS credentials are given via
 
 The cron interval defaults to every 3 hours and can be overridden per host with `attributes.chkbuild.schedule` in `hosts.yml`. The interval is sized from the measured duration of one full chkbuild cycle (all branches) on rubyci.org plus ~15 minutes of headroom, since chkbuild aborts when the previous run still holds its lock.
 
-The cron command runs `start-rubyci` by default and can be overridden per host with `attributes.chkbuild.command` (e.g. `start-cross-rubyci` on crossruby). Extra crontab environment lines can be added per host with the `attributes.chkbuild.env` mapping (e.g. `LC_ALL: C` and `DFLTCC: "0"` on s390x).
+The cron command runs `start-rubyci` by default and can be overridden per host with `attributes.chkbuild.command` (e.g. `start-cross-rubyci` on crossruby). Extra crontab environment lines can be added per host with the `attributes.chkbuild.env` mapping (e.g. `LC_ALL: C` and `DFLTCC: "0"` on s390x). Environment that needs shell expansion goes in the `attributes.chkbuild.command_env` mapping instead, which is prepended inline to the build command (e.g. the android NDK `PATH` prefix and `WASI_SDK_PATH` on crossruby); cron takes crontab environment lines literally and would not expand `$PATH`.
 
 ```bash
 CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho apply fedora44-arm.rubyci.org
