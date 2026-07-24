@@ -2,6 +2,21 @@ property_providers:
   - add_default:
       properties:
         preferred_driver: mitamae
+  # Derive RUBYCI_NICKNAME from the host name and inject AWS credentials
+  # for the chkbuild crontab from environment variables at apply time.
+  - ruby_script:
+      script: |
+        return unless host.name.end_with?('.rubyci.org')
+        chkbuild = { nickname: host.name.split('.').first }
+        if ENV['CHKBUILD_AWS_ACCESS_KEY_ID'] && ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
+          chkbuild[:aws_access_key_id] = ENV['CHKBUILD_AWS_ACCESS_KEY_ID']
+          chkbuild[:aws_secret_access_key] = ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
+        end
+        # NOTE: assign, then re-read; Hashie::Mash stores a converted copy,
+        # so mutating the right-hand value of `||=` would be lost.
+        host.properties[:attributes] ||= {}
+        host.properties[:attributes][:fqdn] = host.name
+        host.properties[:attributes][:chkbuild] = chkbuild
 
 driver_options:
   mitamae:

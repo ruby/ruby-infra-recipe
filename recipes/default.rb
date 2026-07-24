@@ -1,3 +1,4 @@
+include_recipe "hostname"
 include_recipe "setup-users"
 
 user 'chkbuild' do
@@ -83,3 +84,5 @@ when 'gentoo'
     action [:enable, :start]
   end
 end
+
+include_recipe "chkbuild-cron"
