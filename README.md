@@ -67,6 +67,10 @@ The cron command runs `start-rubyci` by default and can be overridden per host w
 CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho apply fedora44-arm.rubyci.org
 ```
 
+### Intel oneAPI (icc.rubyci.org)
+
+`recipes/intel-oneapi.rb` sets up Intel's apt repository and installs `intel-basekit`, which provides the `icx` compiler chkbuild uses on this host. The crontab environment that switches the build to icx (`PATH`, `LD_LIBRARY_PATH`) is defined in `attributes.chkbuild.env` in `hosts.yml`.
+
 ### All chkbuild
 
 `bin/all-hosts` runs a command for every host in `hosts.yml` in parallel, appending the host name as the last argument. Full per-host output goes to `$TMPDIR/all-hosts-<timestamp>/<host>.log` and a summary is printed at the end. Use `-j N` to limit concurrency.
