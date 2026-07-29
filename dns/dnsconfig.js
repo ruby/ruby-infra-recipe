@@ -33,5 +33,9 @@ D("rubyci.org", REG_CHANGEME,
 	// Cloudflare flattens this apex CNAME; dnscontrol expresses it as ALIAS.
 	ALIAS("@", "rubyci.org.herokudns.com."),
 	CNAME("www", "www.rubyci.org.herokudns.com."),
+	// TODO(vault): after `terraform apply` in cdn/, add the ACME challenge
+	// CNAME from `terraform output vault_rubyci_managed_dns_challenges`,
+	// wait for the certificate, then uncomment:
+	// CNAME("vault", "j.sni.global.fastly.net."),
 );
 

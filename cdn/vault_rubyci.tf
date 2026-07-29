@@ -1,0 +1,74 @@
+# Serves chkbuild logs from the public rubyci S3 bucket (ap-northeast-1)
+# so that rubyci.org can link to vault.rubyci.org instead of S3 directly.
+resource "fastly_service_vcl" "vault_rubyci" {
+  activate           = true
+  stage              = false
+  default_ttl        = 300
+  http3              = true
+  name               = "vault.rubyci.org"
+  stale_if_error     = true
+  stale_if_error_ttl = 43200
+
+  backend {
+    address               = "rubyci.s3.ap-northeast-1.amazonaws.com"
+    auto_loadbalance      = false
+    between_bytes_timeout = 10000
+    connect_timeout       = 1000
+    error_threshold       = 0
+    first_byte_timeout    = 15000
+    keepalive_time        = 0
+    max_conn              = 200
+    max_lifetime          = 0
+    max_use               = 0
+    name                  = "rubyci S3 bucket"
+    override_host         = "rubyci.s3.ap-northeast-1.amazonaws.com"
+    port                  = 443
+    prefer_ipv6           = false
+    shield                = "tyo-tokyo-jp"
+    ssl_cert_hostname     = "rubyci.s3.ap-northeast-1.amazonaws.com"
+    ssl_check_cert        = true
+    ssl_sni_hostname      = "rubyci.s3.ap-northeast-1.amazonaws.com"
+    use_ssl               = true
+    weight                = 100
+  }
+
+  domain {
+    name = "vault.rubyci.org"
+  }
+
+  logging_datadog {
+    format            = file("${path.module}/logging/datadog_format.json")
+    format_version    = 2
+    name              = "Datadog"
+    processing_region = "none"
+    region            = "AP1"
+    token             = var.datadog_token
+  }
+
+  request_setting {
+    bypass_busy_wait = false
+    force_miss       = false
+    force_ssl        = true
+    max_stale_age    = 0
+    name             = "Force TLS"
+    timer_support    = false
+    xff              = "append"
+  }
+
+  vcl {
+    content = file("${path.module}/vcl/vault_rubyci.vcl")
+    main    = true
+    name    = "default"
+  }
+}
+
+resource "fastly_tls_subscription" "vault_rubyci" {
+  domains               = [one([for d in fastly_service_vcl.vault_rubyci.domain : d.name])]
+  certificate_authority = "certainly"
+}
+
+# CNAME records to add in dns/dnsconfig.js: the ACME challenge for issuance,
+# then the domain itself pointing at the Fastly TLS endpoint.
+output "vault_rubyci_managed_dns_challenges" {
+  value = fastly_tls_subscription.vault_rubyci.managed_dns_challenges
+}
