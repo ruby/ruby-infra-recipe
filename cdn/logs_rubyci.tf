@@ -1,11 +1,11 @@
 # Serves chkbuild logs from the public rubyci S3 bucket (ap-northeast-1)
-# so that rubyci.org can link to vault.rubyci.org instead of S3 directly.
-resource "fastly_service_vcl" "vault_rubyci" {
+# so that rubyci.org can link to logs.rubyci.org instead of S3 directly.
+resource "fastly_service_vcl" "logs_rubyci" {
   activate           = true
   stage              = false
   default_ttl        = 300
   http3              = true
-  name               = "vault.rubyci.org"
+  name               = "logs.rubyci.org"
   stale_if_error     = true
   stale_if_error_ttl = 43200
 
@@ -33,7 +33,7 @@ resource "fastly_service_vcl" "vault_rubyci" {
   }
 
   domain {
-    name = "vault.rubyci.org"
+    name = "logs.rubyci.org"
   }
 
   logging_datadog {
@@ -56,19 +56,22 @@ resource "fastly_service_vcl" "vault_rubyci" {
   }
 
   vcl {
-    content = file("${path.module}/vcl/vault_rubyci.vcl")
+    content = file("${path.module}/vcl/logs_rubyci.vcl")
     main    = true
     name    = "default"
   }
 }
 
-resource "fastly_tls_subscription" "vault_rubyci" {
-  domains               = [one([for d in fastly_service_vcl.vault_rubyci.domain : d.name])]
+resource "fastly_tls_subscription" "logs_rubyci" {
+  domains               = [one([for d in fastly_service_vcl.logs_rubyci.domain : d.name])]
   certificate_authority = "certainly"
+  # "HTTP/3 & TLS v1.3". The account has no default TLS configuration, and the
+  # older v1.2 ones used by ruby-lang.org do not advertise http/3.
+  configuration_id = "cyAx0f8WAbapyNAT4TVOgw"
 }
 
 # CNAME records to add in dns/dnsconfig.js: the ACME challenge for issuance,
 # then the domain itself pointing at the Fastly TLS endpoint.
-output "vault_rubyci_managed_dns_challenges" {
-  value = fastly_tls_subscription.vault_rubyci.managed_dns_challenges
+output "logs_rubyci_managed_dns_challenges" {
+  value = fastly_tls_subscription.logs_rubyci.managed_dns_challenges
 }
