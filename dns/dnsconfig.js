@@ -33,5 +33,10 @@ D("rubyci.org", REG_CHANGEME,
 	// Cloudflare flattens this apex CNAME; dnscontrol expresses it as ALIAS.
 	ALIAS("@", "rubyci.org.herokudns.com."),
 	CNAME("www", "www.rubyci.org.herokudns.com."),
+	// chkbuild logs, served by the logs.rubyci.org Fastly service in cdn/.
+	// The _acme-challenge record renews the Certainly certificate; removing it
+	// breaks renewal.
+	CNAME("logs", "m.sni.global.fastly.net."),
+	CNAME("_acme-challenge.logs", "d867b4erl69vx2y93y.fastly-validations.com."),
 );
 
