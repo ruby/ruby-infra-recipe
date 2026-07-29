@@ -9,12 +9,15 @@ property_providers:
   # ~/.aws/credentials written from environment variables at apply time.
   - ruby_script:
       script: |
-        return unless host.name.end_with?('.rubyci.org')
         # Keep per-host chkbuild attributes from hosts.yml (e.g. schedule)
         # and add the derived/injected values on top.
         # Hashie::Mash, so indifferent access; do not .to_h (string keys would
         # break the :nickname ||= below).
-        chkbuild = host.properties.dig(:attributes, :chkbuild) || {}
+        chkbuild = host.properties.dig(:attributes, :chkbuild)
+        # The macOS hosts are named by ssh alias (fuji, ringo) instead of a
+        # rubyci.org DNS name; they opt in via explicit chkbuild attributes.
+        return unless host.name.end_with?('.rubyci.org') || chkbuild
+        chkbuild ||= {}
         # e.g. openbsd reports to rubyci as openbsd-current; keep an explicit
         # nickname from hosts.yml over the host-name-derived one.
         chkbuild[:nickname] ||= host.name.split('.').first
