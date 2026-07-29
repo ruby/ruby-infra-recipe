@@ -1,10 +1,34 @@
-# Install the chkbuild user's crontab. AWS credentials are injected into
-# node[:chkbuild] by the ruby_script property provider in hocho.yml only
-# when CHKBUILD_AWS_ACCESS_KEY_ID/CHKBUILD_AWS_SECRET_ACCESS_KEY are set
-# at apply time; otherwise the crontab is left untouched.
+# Install the chkbuild user's crontab. S3 uploads authenticate via the
+# default credential chain (EC2 instance profile, or ~/.aws/credentials on
+# non-EC2 hosts), so the crontab carries no AWS keys. node[:chkbuild] is
+# populated by the ruby_script property provider in hocho.yml only for
+# *.rubyci.org hosts; elsewhere the crontab is left untouched.
 chkbuild = node[:chkbuild] || {}
 
-if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
+if chkbuild[:nickname]
+  # Non-EC2 hosts (aws_credentials_file in hosts.yml) cannot use an
+  # instance profile, so they keep a long-lived key in ~/.aws/credentials.
+  # The key pair reaches node[:chkbuild] only when CHKBUILD_AWS_* are set
+  # at apply time; a credential-less apply skips this and leaves the
+  # existing file untouched.
+  if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
+    directory "/home/chkbuild/.aws" do
+      owner 'chkbuild'
+      mode '700'
+    end
+
+    file "/home/chkbuild/.aws/credentials" do
+      owner 'chkbuild'
+      mode '600'
+      content [
+        '[default]',
+        "aws_access_key_id = #{chkbuild[:aws_access_key_id]}",
+        "aws_secret_access_key = #{chkbuild[:aws_secret_access_key]}",
+        '',
+      ].join("\n")
+    end
+  end
+
   crontab_path = "/home/chkbuild/.crontab"
 
   # Interval per host is chosen so that one full chkbuild cycle (all branches)
@@ -25,8 +49,6 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
 
   lines = [
     'MAILTO=""',
-    "AWS_ACCESS_KEY_ID=#{chkbuild[:aws_access_key_id]}",
-    "AWS_SECRET_ACCESS_KEY=#{chkbuild[:aws_secret_access_key]}",
     "RUBYCI_NICKNAME=#{chkbuild[:nickname]}",
   ]
   # Extra per-host environment lines (attributes.chkbuild.env in hosts.yml),
@@ -56,5 +78,5 @@ if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
     not_if "crontab -l -u chkbuild 2>/dev/null | cmp -s - #{crontab_path}"
   end
 else
-  MItamae.logger.info "skipping chkbuild crontab (no AWS credentials given)"
+  MItamae.logger.info "skipping chkbuild crontab (not a rubyci host)"
 end
