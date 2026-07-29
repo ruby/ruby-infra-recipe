@@ -1,5 +1,13 @@
-# macOS hosts (fuji, ringo): everything is set up for the hsbt login user;
-# OS provisioning, Xcode CLT and the MacPorts installer are out of scope.
+# macOS hosts (fuji, ringo): OS provisioning, Xcode CLT and the MacPorts
+# installer are out of scope.
+#
+# The user owning everything (rbenv, checkouts, crontab) comes from
+# attributes.chkbuild.user in hosts.yml (currently hsbt), so switching to a
+# dedicated chkbuild user later only needs that attribute changed; the user
+# itself must already exist.
+chkbuild = node[:chkbuild] || {}
+user = chkbuild[:user] || 'chkbuild'
+home = "/Users/#{user}"
 
 # Build dependencies for the chkbuild ruby builds, from MacPorts.
 # start-rubyci puts /opt/local/bin on PATH and configures with
@@ -31,7 +39,7 @@ end
 
 node.reverse_merge!(
   rbenv: {
-    user: 'hsbt',
+    user: user,
     group: 'staff',
     global: '3.4.8',
     versions: %w[
@@ -55,14 +63,14 @@ node.reverse_merge!(
 
 # Same workaround as default.rb: mitamae's git resource cannot update a
 # repo whose HEAD was moved off the deploy branch.
-%w[
-  /Users/hsbt/.rbenv
-  /Users/hsbt/.rbenv/plugins/ruby-build
-  /Users/hsbt/.rbenv/plugins/rbenv-default-gems
+%W[
+  #{home}/.rbenv
+  #{home}/.rbenv/plugins/ruby-build
+  #{home}/.rbenv/plugins/rbenv-default-gems
 ].each do |repo|
   execute "remove stale deploy branch in #{repo}" do
     command "git -C #{repo} branch -D deploy"
-    user 'hsbt'
+    user user
     only_if "test \"$(git -C #{repo} rev-parse --abbrev-ref HEAD)\" != deploy && git -C #{repo} rev-parse -q --verify refs/heads/deploy"
   end
 end
@@ -72,13 +80,12 @@ include_recipe 'rbenv::user'
 # chkbuild checkouts under ~/Documents (the primary build plus any
 # extra_builds from hosts.yml); each keeps itself up to date with the
 # git pull in its cron line, so existing checkouts are left alone.
-chkbuild = node[:chkbuild] || {}
 dirs = [chkbuild[:dir], *(chkbuild[:extra_builds] || []).map { |extra| extra[:dir] }].compact
 dirs.each do |dir|
-  git "/Users/hsbt/#{dir}" do
+  git "#{home}/#{dir}" do
     repository 'https://github.com/ruby/chkbuild'
-    user 'hsbt'
-    not_if "test -e /Users/hsbt/#{dir}"
+    user user
+    not_if "test -e #{home}/#{dir}"
   end
 end
 
