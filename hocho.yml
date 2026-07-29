@@ -2,8 +2,11 @@ property_providers:
   - add_default:
       properties:
         preferred_driver: mitamae
-  # Derive RUBYCI_NICKNAME from the host name and inject AWS credentials
-  # for the chkbuild crontab from environment variables at apply time.
+  # Derive RUBYCI_NICKNAME from the host name for the chkbuild crontab.
+  # S3 upload credentials come from the default credential chain on each
+  # host: EC2 hosts use their instance profile, and the few non-EC2 hosts
+  # (attributes.chkbuild.aws_credentials_file in hosts.yml) get
+  # ~/.aws/credentials written from environment variables at apply time.
   - ruby_script:
       script: |
         return unless host.name.end_with?('.rubyci.org')
@@ -15,7 +18,8 @@ property_providers:
         # e.g. openbsd reports to rubyci as openbsd-current; keep an explicit
         # nickname from hosts.yml over the host-name-derived one.
         chkbuild[:nickname] ||= host.name.split('.').first
-        if ENV['CHKBUILD_AWS_ACCESS_KEY_ID'] && ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
+        if chkbuild[:aws_credentials_file] &&
+           ENV['CHKBUILD_AWS_ACCESS_KEY_ID'] && ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
           chkbuild[:aws_access_key_id] = ENV['CHKBUILD_AWS_ACCESS_KEY_ID']
           chkbuild[:aws_secret_access_key] = ENV['CHKBUILD_AWS_SECRET_ACCESS_KEY']
         end
