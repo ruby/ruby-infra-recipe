@@ -6,7 +6,7 @@ The `ftp` service has been dormant since 2018 and is kept with `activate = false
 
 ## Usage
 
-Credentials come from `~/.config/fastly/token.sh`, which must export `FASTLY_API_KEY` (global scope token), `TF_VAR_datadog_token`, `TF_VAR_logging_s3_access_key`, `TF_VAR_logging_s3_secret_key`, and `AWS_PROFILE` for the state backend.
+Credentials come from `~/.config/fastly/token.sh`, which must export `FASTLY_API_KEY` (global scope token), `TF_VAR_datadog_token`, `TF_VAR_logging_s3_access_key`, and `TF_VAR_logging_s3_secret_key`. The state backend also needs AWS credentials that can read and write `s3://ruby-lang-terraform-state`, supplied through any standard AWS mechanism such as `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
 
 ```
 source ~/.config/fastly/token.sh
