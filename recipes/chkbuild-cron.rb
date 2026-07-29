@@ -6,19 +6,27 @@
 chkbuild = node[:chkbuild] || {}
 
 if chkbuild[:nickname]
+  # The Linux hosts run chkbuild as the dedicated chkbuild user; the macOS
+  # hosts run everything as the hsbt login user (attributes.chkbuild.user).
+  user = chkbuild[:user] || 'chkbuild'
+  home = node[:platform] == 'darwin' ? "/Users/#{user}" : "/home/#{user}"
+  # chkbuild checkout relative to the home directory (attributes.chkbuild.dir);
+  # the macOS hosts historically use ~/Documents/cb, not ~/chkbuild.
+  dir = chkbuild[:dir] || 'chkbuild'
+
   # Non-EC2 hosts (aws_credentials_file in hosts.yml) cannot use an
   # instance profile, so they keep a long-lived key in ~/.aws/credentials.
   # The key pair reaches node[:chkbuild] only when CHKBUILD_AWS_* are set
   # at apply time; a credential-less apply skips this and leaves the
   # existing file untouched.
   if chkbuild[:aws_access_key_id] && chkbuild[:aws_secret_access_key]
-    directory "/home/chkbuild/.aws" do
-      owner 'chkbuild'
+    directory "#{home}/.aws" do
+      owner user
       mode '700'
     end
 
-    file "/home/chkbuild/.aws/credentials" do
-      owner 'chkbuild'
+    file "#{home}/.aws/credentials" do
+      owner user
       mode '600'
       content [
         '[default]',
@@ -29,7 +37,7 @@ if chkbuild[:nickname]
     end
   end
 
-  crontab_path = "/home/chkbuild/.crontab"
+  crontab_path = "#{home}/.crontab"
 
   # Interval per host is chosen so that one full chkbuild cycle (all branches)
   # plus ~15min headroom fits within it; chkbuild aborts when the previous run
@@ -56,7 +64,7 @@ if chkbuild[:nickname]
   (chkbuild[:env] || {}).each do |key, value|
     lines << "#{key}=#{value}"
   end
-  lines << "#{schedule} cd ~/chkbuild && git pull origin master && #{command_prefix}~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
+  lines << "#{schedule} cd ~/#{dir} && git pull origin master && #{command_prefix}~/.rbenv/shims/ruby #{command} && rm -rf tmp/build"
   # Additional chkbuild checkouts on the same host
   # (attributes.chkbuild.extra_builds in hosts.yml), e.g. ~/chkbuild-no-yjit
   # reporting as ubuntu-no-yjit. RUBYCI_NICKNAME is overridden per line
@@ -69,13 +77,13 @@ if chkbuild[:nickname]
   # NOTE: no <<~ heredoc here; the mruby in mitamae <= 1.11 misparses it as
   # `content << ~CRON` and dies with NameError.
   file crontab_path do
-    owner 'chkbuild'
+    owner user
     mode '600'
     content lines.join("\n")
   end
 
-  execute "crontab -u chkbuild #{crontab_path}" do
-    not_if "crontab -l -u chkbuild 2>/dev/null | cmp -s - #{crontab_path}"
+  execute "crontab -u #{user} #{crontab_path}" do
+    not_if "crontab -l -u #{user} 2>/dev/null | cmp -s - #{crontab_path}"
   end
 else
   MItamae.logger.info "skipping chkbuild crontab (not a rubyci host)"
