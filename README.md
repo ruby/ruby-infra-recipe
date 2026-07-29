@@ -75,6 +75,10 @@ CHKBUILD_AWS_ACCESS_KEY_ID=... CHKBUILD_AWS_SECRET_ACCESS_KEY=... bin/hocho appl
 
 When `attributes.chkbuild.command` is `start-cross-rubyci`, `recipes/crossruby.rb` installs the cross toolchains on top of the common setup: the Ubuntu cross gcc packages for the linux/mingw targets, emscripten, and the WASI SDK and Android NDK under `/home/chkbuild/opt`. The WASI SDK and NDK versions are resolved to the latest stable GitHub release at every apply, and the version-independent symlinks `/home/chkbuild/opt/wasi-sdk` and `/home/chkbuild/opt/android-ndk` are pointed at them, so the crontab paths in `attributes.chkbuild.command_env` never change. Superseded toolchain versions are removed, except directories still referenced by the installed crontab (an apply without AWS credentials leaves the crontab untouched, and its toolchains must survive until the next apply with credentials).
 
+### macOS hosts (fuji, ringo)
+
+The macOS hosts are addressed by the ssh aliases `fuji` and `ringo` from `~/.ssh/config`, not by rubyci.org names. Everything runs as the hsbt login user; there is no chkbuild user. `recipes/macos.rb` manages the MacPorts build dependencies, rbenv with aws-sdk-s3 as a default gem, the chkbuild checkouts under `~/Documents` and the crontab. OS provisioning, Xcode Command Line Tools and the MacPorts installer itself are out of scope. sudo must be passwordless, via a drop-in in `/private/etc/sudoers.d` (the file name must not contain a period). With that in place `bin/hocho apply fuji` works like any other host.
+
 ### All chkbuild
 
 `bin/all-hosts` runs a command for every host in `hosts.yml` in parallel, appending the host name as the last argument. Full per-host output goes to `$TMPDIR/all-hosts-<timestamp>/<host>.log` and a summary is printed at the end. Use `-j N` to limit concurrency.
