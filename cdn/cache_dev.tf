@@ -102,8 +102,6 @@ resource "fastly_service_vcl" "cache_dev" {
     name = "cache-rlo-dev.global.ssl.fastly.net"
   }
 
-  # No logging_s3 counterpart: the production bucket ftp.r-l.o.log is an
-  # access-log archive for cache, and dev traffic does not belong in it.
   logging_datadog {
     format            = file("${path.module}/logging/datadog_format.json")
     format_version    = 2
