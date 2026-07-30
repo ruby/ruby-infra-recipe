@@ -5,7 +5,8 @@ resource "heroku_app" "bugs_ruby_lang" {
   acm    = true
 
   buildpacks = [
-    "heroku-community/apt",
+    # Heroku stores the resolved registry tarball, not the shorthand name.
+    "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku-community/apt.tgz",
     "https://github.com/DataDog/heroku-buildpack-datadog.git",
     "heroku/nodejs",
     "heroku/ruby",
