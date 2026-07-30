@@ -2,4 +2,14 @@
 if [[ ! -d plugins/itamae-plugin-recipe-rbenv/.git ]]; then
   git submodule init && git submodule update
 fi
+
+# A bare `bundle` resolves to /usr/bin/bundle, and so to the macOS system
+# Ruby 2.6, in any environment that lists /usr/bin ahead of the version
+# manager; bundler 4 dies there with an unhelpful NameError about
+# Gem::Resolver::APISet::GemParser. `mise exec` does not help because it
+# keeps the ambient order, so put the mise ruby in front explicitly.
+# Environments without mise keep whatever ruby they already resolve to.
+if ruby_prefix=$(mise where ruby 2>/dev/null) && [[ -x "${ruby_prefix}/bin/bundle" ]]; then
+  PATH="${ruby_prefix}/bin:${PATH}"
+fi
 exec bundle exec hocho "$@"
