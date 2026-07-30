@@ -8,7 +8,11 @@ One-off process types scaled to zero (`console`, `rake`, `release`) are omitted,
 
 ## Usage
 
-Credentials come from `~/.config/heroku/token.sh`, which must export `HEROKU_API_KEY`. Create the token with `heroku authorizations:create --description "terraform ruby-infra-recipe" --scope read,write`, not `heroku auth:token`, which is short-lived. The state backend also needs AWS credentials that can read and write `s3://ruby-lang-terraform-state`, supplied through any standard AWS mechanism such as `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
+Credentials come from `~/.config/heroku/token.sh`, which must export `HEROKU_API_KEY`. Create the token with `heroku authorizations:create --description "terraform ruby-infra-recipe" --scope write-protected`, not `heroku auth:token`, which is short-lived.
+
+`write-protected` is the narrowest scope that works. Plain `read,write` excludes config vars, and reading a `heroku_app` fails without them, because the provider always fetches `/config-vars` even though `set_app_all_config_vars_in_state = false` keeps the values out of the state file.
+
+The state backend also needs AWS credentials that can read and write `s3://ruby-lang-terraform-state`, supplied through any standard AWS mechanism. `AWS_PROFILE=ruby-lang` works here.
 
 ```
 source ~/.config/heroku/token.sh
