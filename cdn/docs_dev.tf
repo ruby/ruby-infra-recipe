@@ -28,6 +28,17 @@ resource "fastly_service_vcl" "docs_dev" {
     weight                = 100
   }
 
+  # A shielded miss runs the logging endpoint at both POPs, so one request
+  # becomes two events carrying the same byte count. The edge sets Fastly-FF when
+  # it forwards to the shield, so this keeps the edge line, which is the one with
+  # the client POP and the client-facing byte count.
+  condition {
+    name      = "not-shield-request"
+    priority  = 10
+    statement = "!req.http.Fastly-FF"
+    type      = "RESPONSE"
+  }
+
   # Reached only through the Fastly-provided domain, same as cache-dev. That
   # needs neither a ruby-lang.org zone change nor a TLS subscription, since the
   # shared certificate already covers it.
@@ -42,12 +53,13 @@ resource "fastly_service_vcl" "docs_dev" {
   }
 
   logging_datadog {
-    format            = file("${path.module}/logging/datadog_format.json")
-    format_version    = 2
-    name              = "Datadog"
-    processing_region = "none"
-    region            = "AP1"
-    token             = var.datadog_token
+    format             = file("${path.module}/logging/datadog_format.json")
+    format_version     = 2
+    name               = "Datadog"
+    processing_region  = "none"
+    region             = "AP1"
+    response_condition = "not-shield-request"
+    token              = var.datadog_token
   }
 
   request_setting {
