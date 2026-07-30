@@ -5,11 +5,11 @@ DNSControl configuration for the Cloudflare zones. One directory per zone, each 
 - `rubyci.org/` — the CI hosts. Every rubyci host is resolved through DNS rather than `~/.ssh/config`, so a new host needs its record here before `bin/hocho apply`. The apex uses Cloudflare's CNAME flattening, which DNSControl expresses as `ALIAS`.
 - `ruby-lang.org/` — the project zone.
 
-The API tokens are zone-scoped and therefore different per zone, so each `creds.json` reads a different environment variable. `rubyci.org/creds.json` reads `CLOUDFLARE_API_TOKEN` and `ruby-lang.org/creds.json` reads `CLOUDFLARE_API_TOKEN_RUBY_LANG_ORG`.
+The API tokens are zone-scoped and therefore different per zone, so each `creds.json` reads an environment variable named after its zone. `rubyci.org/creds.json` reads `CLOUDFLARE_API_TOKEN_RUBYCI` and `ruby-lang.org/creds.json` reads `CLOUDFLARE_API_TOKEN_RUBY_LANG_ORG`.
 
 ## rubyci.org
 
-Applied from CI by `.github/workflows/dns.yml`: a pull request runs `dnscontrol preview`, and merging to `master` runs `dnscontrol push`. The token comes from the repository secret `CLOUDFLARE_API_TOKEN`.
+Applied from CI by `.github/workflows/dns.yml`: a pull request runs `dnscontrol preview`, and merging to `master` runs `dnscontrol push`. The token comes from the repository secret `CLOUDFLARE_API_TOKEN_RUBYCI`.
 
 To preview locally:
 

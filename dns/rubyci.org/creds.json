@@ -1,6 +1,6 @@
 {
   "cloudflare": {
     "TYPE": "CLOUDFLAREAPI",
-    "apitoken": "$CLOUDFLARE_API_TOKEN"
+    "apitoken": "$CLOUDFLARE_API_TOKEN_RUBYCI"
   }
 }
