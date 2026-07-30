@@ -1,7 +1,6 @@
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
-  default_host       = "docs-origin.ruby-lang.org"
   default_ttl        = 60
   http3              = false
   name               = "docs-dev.ruby-lang.org"
@@ -9,7 +8,7 @@ resource "fastly_service_vcl" "docs_dev" {
   stale_if_error_ttl = 43200
 
   backend {
-    address               = "52.192.112.124"
+    address               = "docs-origin.ruby-lang.org"
     auto_loadbalance      = false
     between_bytes_timeout = 10000
     connect_timeout       = 1000
@@ -19,22 +18,45 @@ resource "fastly_service_vcl" "docs_dev" {
     max_conn              = 200
     max_lifetime          = 0
     max_use               = 0
-    name                  = "addr 52.192.112.124"
+    name                  = "docs origin server"
     port                  = 443
     prefer_ipv6           = false
-    ssl_cert_hostname     = "docs.ruby-lang.org"
+    shield                = "tyo-tokyo-jp"
+    ssl_cert_hostname     = "docs-origin.ruby-lang.org"
     ssl_check_cert        = true
     use_ssl               = true
     weight                = 100
   }
 
+  # Reached only through the Fastly-provided domain, same as cache-dev. That
+  # needs neither a ruby-lang.org zone change nor a TLS subscription, since the
+  # shared certificate already covers it.
   domain {
-    name = "docs-dev.ruby-lang.org"
+    name = "docs-rlo-dev.global.ssl.fastly.net"
   }
 
   gzip {
     content_types = ["text/html", "application/x-javascript", "text/css", "application/javascript", "text/javascript", "application/json", "application/vnd.ms-fontobject", "application/x-font-opentype", "application/x-font-truetype", "application/x-font-ttf", "application/xml", "font/eot", "font/opentype", "font/otf", "image/svg+xml", "image/vnd.microsoft.icon", "text/plain", "text/xml"]
     extensions    = ["css", "js", "html", "eot", "ico", "otf", "ttf", "json", "svg"]
     name          = "Default Gzip Policy"
+  }
+
+  logging_datadog {
+    format            = file("${path.module}/logging/datadog_format.json")
+    format_version    = 2
+    name              = "Datadog"
+    processing_region = "none"
+    region            = "AP1"
+    token             = var.datadog_token
+  }
+
+  request_setting {
+    bypass_busy_wait = false
+    force_miss       = false
+    force_ssl        = true
+    max_stale_age    = 0
+    name             = "Force TLS"
+    timer_support    = false
+    xff              = "append"
   }
 }
