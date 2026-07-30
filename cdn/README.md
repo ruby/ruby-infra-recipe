@@ -6,7 +6,7 @@ The `ftp` service has been dormant since 2018 and is kept with `activate = false
 
 The `logs.rubyci.org` service fronts the public `rubyci` S3 bucket (chkbuild logs). Switching rubyci.org log links over to it happens in the ruby/rubyci repository.
 
-Bootstrapping a domain on a new TLS subscription takes three steps, because the ACME challenge has to resolve before Fastly will issue: `terraform apply`, then add the challenge CNAME from `terraform output logs_rubyci_managed_dns_challenges` to `dns/dnsconfig.js` and push it, then add the domain CNAME once the subscription reaches `issued`. The challenge record stays in `dnsconfig.js` afterwards, since renewal reuses it.
+Bootstrapping a domain on a new TLS subscription takes three steps, because the ACME challenge has to resolve before Fastly will issue: `terraform apply`, then add the challenge CNAME from `terraform output logs_rubyci_managed_dns_challenges` to `dns/rubyci.org/dnsconfig.js` and push it, then add the domain CNAME once the subscription reaches `issued`. The challenge record stays in `dnsconfig.js` afterwards, since renewal reuses it.
 
 Two things about the Fastly API token. It needs the TLS management permission, which is only settable when the automation token is created; without it `fastly_tls_subscription` fails with a bare `403 - Forbidden`. And this account has no default TLS configuration, so `configuration_id` is required, which also decides the CNAME target the domain points at.
 
