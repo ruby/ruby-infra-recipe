@@ -4,6 +4,8 @@ Terraform configuration for the Fastly services of ruby-lang.org. Each service l
 
 Datadog is the only log sink. Long term storage of the same events runs through Datadog's S3 log archive, managed in `datadog/`, because the index retention this org's contract allows is 15 days.
 
+Every service shields, and a miss at the edge runs the logging endpoint again at the shield, so each `logging_datadog` block carries a `not-shield-request` response condition of `!req.http.Fastly-FF` to drop the shield line. Without it, a shielded request was counted twice and its `bytes_written` summed twice, which was 30 percent of the events and 24 percent of the bytes. Note that `cache-dev` shields through the `cache` service rather than through itself, because its `default_host` is the shielding domain declared on `cache`, so the condition on `cache` is what drops its shield lines.
+
 The `ftp` service has been dormant since 2018 and is kept with `activate = false`. `ftp.ruby-lang.org` is actually served by the `cache` service.
 
 The `logs.rubyci.org` service fronts the public `rubyci` S3 bucket (chkbuild logs). Switching rubyci.org log links over to it happens in the ruby/rubyci repository.

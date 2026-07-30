@@ -76,6 +76,19 @@ resource "fastly_service_vcl" "cache" {
     weight                = 100
   }
 
+  # A shielded miss runs the logging endpoint at both POPs, so one request
+  # becomes two events carrying the same byte count. The edge sets Fastly-FF when
+  # it forwards to the shield, so this keeps the edge line, which is the one with
+  # the client POP and the client-facing byte count. cache-dev shields through
+  # this service too, since its default_host is the shielding domain below, so
+  # this drops the cache-dev shield lines as well.
+  condition {
+    name      = "not-shield-request"
+    priority  = 10
+    statement = "!req.http.Fastly-FF"
+    type      = "RESPONSE"
+  }
+
   # Replaces the always_false placeholder that used to keep this backend out of
   # the generated selection. Routing through a condition instead of assigning
   # req.backend in custom VCL is what lets the shield apply. The flag is set
@@ -109,12 +122,13 @@ resource "fastly_service_vcl" "cache" {
   }
 
   logging_datadog {
-    format            = file("${path.module}/logging/datadog_format.json")
-    format_version    = 2
-    name              = "Datadog"
-    processing_region = "none"
-    region            = "AP1"
-    token             = var.datadog_token
+    format             = file("${path.module}/logging/datadog_format.json")
+    format_version     = 2
+    name               = "Datadog"
+    processing_region  = "none"
+    region             = "AP1"
+    response_condition = "not-shield-request"
+    token              = var.datadog_token
   }
 
   # The direct S3 sink is gone. It was this service only, in common log format,
