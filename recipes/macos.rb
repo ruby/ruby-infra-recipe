@@ -77,9 +77,9 @@ end
 
 include_recipe 'rbenv::user'
 
-# chkbuild checkouts under ~/Documents (the primary build plus any
-# extra_builds from hosts.yml); each keeps itself up to date with the
-# git pull in its cron line, so existing checkouts are left alone.
+# chkbuild checkouts (the primary build plus any extra_builds from
+# hosts.yml); each keeps itself up to date with the git pull in its cron
+# line, so existing checkouts are left alone.
 dirs = [chkbuild[:dir], *(chkbuild[:extra_builds] || []).map { |extra| extra[:dir] }].compact
 dirs.each do |dir|
   git "#{home}/#{dir}" do
