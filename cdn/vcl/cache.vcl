@@ -1,4 +1,12 @@
 sub vcl_recv {
+  // Set before #FASTLY recv so the generated backend condition sees it. The
+  // shield can only be selected once per request, and the macro claims it for
+  // whichever backend it picks, so assigning req.backend afterwards silently
+  // loses shielding.
+  if (req.url == "/") {
+    set req.http.X-Rlo-Use-Index-App = "1";
+  }
+
 #FASTLY recv
 
   // https://bugs.ruby-lang.org/projects/ruby/wiki/CDN-LabSorahDeb
@@ -10,14 +18,9 @@ sub vcl_recv {
     set req.url = regsub(req.url, "^/lab/sorah/deb/", "/sorah-pkg/ruby/");
     set req.http.Host = "s3-ap-northeast-1.amazonaws.com";
   }
-  if (req.url == "/") {
-    set req.http.X-Rlo-Use-Index-App = "1";
-  }
-  if (req.http.X-Rlo-Use-Index-App) {
-    set req.backend = F_cache_ruby_lang_herokuapp_com;
-    set req.http.Host = "cache-ruby-lang.herokuapp.com";
-  }
-
+  // The Host for the index app is applied by override_host on the backend, so
+  // the shield still sees a Host that belongs to this service. This file is
+  // shared by the cache and cache-dev services.
 
   if (req.request != "HEAD" && req.request != "GET" && req.request != "FASTLYPURGE") {
     return(pass);

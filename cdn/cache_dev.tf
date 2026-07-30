@@ -79,7 +79,7 @@ resource "fastly_service_vcl" "cache_dev" {
   # Replaces the always_false placeholder that used to keep this backend out of
   # the generated selection. Routing through a condition instead of assigning
   # req.backend in custom VCL is what lets the shield apply. The flag is set
-  # before #FASTLY recv in vcl/cache_dev.vcl, and again in vcl_fetch before the
+  # before #FASTLY recv in vcl/cache.vcl, and again in vcl_fetch before the
   # restart that falls back to the index app.
   condition {
     name      = "url-is-index-app"
@@ -113,11 +113,11 @@ resource "fastly_service_vcl" "cache_dev" {
     token             = var.datadog_token
   }
 
-  # Temporarily split from the shared vcl/cache.vcl to canary the shield
-  # re-selection for the Heroku backend. Re-converge on the shared file once
-  # production adopts the change.
+  # Shared with the cache service again now that production runs the same VCL.
+  # Split it back out into a cache_dev-only file when the next VCL change needs
+  # a canary.
   vcl {
-    content = file("${path.module}/vcl/cache_dev.vcl")
+    content = file("${path.module}/vcl/cache.vcl")
     main    = true
     name    = "default"
   }
