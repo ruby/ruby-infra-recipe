@@ -109,16 +109,10 @@ data "aws_iam_policy_document" "log_archive" {
     resources = [aws_s3_bucket.log_archive.arn]
   }
 
-  # Nothing to do with the archive. The integration health check calls this even
-  # with metrics_config disabled, and without it the AWS integration screen sits
-  # on a permanent "missing critical IAM permissions" alert that reads like a
-  # real outage. It lists metric names only, never values, and does not turn
-  # metrics collection back on. The action takes no resource qualifier.
-  statement {
-    effect    = "Allow"
-    actions   = ["cloudwatch:ListMetrics"]
-    resources = ["*"]
-  }
+  # This policy stays scoped to the archive bucket. The cloudwatch:ListMetrics
+  # statement that used to sit here was a stopgap against the integration health
+  # check, and integration_iam.tf now covers it under cloudwatch:List* along with
+  # the rest of Datadog's list.
 }
 
 resource "aws_iam_role_policy" "log_archive" {
