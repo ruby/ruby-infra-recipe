@@ -46,7 +46,6 @@ resource "fastly_service_vcl" "cache_dev" {
     request_condition     = "url-is-sorah-deb"
     ssl_cert_hostname     = "s3-ap-northeast-1.amazonaws.com"
     ssl_check_cert        = true
-    ssl_sni_hostname      = "s3-ap-northeast-1.amazonaws.com"
     use_ssl               = true
     weight                = 100
   }
@@ -65,6 +64,7 @@ resource "fastly_service_vcl" "cache_dev" {
     name                  = "s3.amazonaws.com"
     port                  = 443
     prefer_ipv6           = false
+    shield                = "iad-va-us"
     ssl_cert_hostname     = "s3.amazonaws.com"
     ssl_check_cert        = true
     use_ssl               = true
@@ -85,16 +85,29 @@ resource "fastly_service_vcl" "cache_dev" {
     type      = "REQUEST"
   }
 
-  domain {
-    name = "cache-dev.ruby-lang.org"
-  }
-
+  # Reached only through the Fastly-provided domain. cache-dev.ruby-lang.org
+  # never had a DNS record, so dropping it costs nothing and keeps the canary
+  # off the ruby-lang.org zone.
   domain {
     name = "cache-rlo-dev.global.ssl.fastly.net"
   }
 
+  # No logging_s3 counterpart: the production bucket ftp.r-l.o.log is an
+  # access-log archive for cache, and dev traffic does not belong in it.
+  logging_datadog {
+    format            = file("${path.module}/logging/datadog_format.json")
+    format_version    = 2
+    name              = "Datadog"
+    processing_region = "none"
+    region            = "AP1"
+    token             = var.datadog_token
+  }
+
+  # Shared with the cache service on purpose. Both define the same backend
+  # names, so the generated identifiers (F_s3_amazonaws_com and friends) match,
+  # and a canary is only worth running on the VCL production actually uses.
   vcl {
-    content = file("${path.module}/vcl/cache_dev.vcl")
+    content = file("${path.module}/vcl/cache.vcl")
     main    = true
     name    = "default"
   }
