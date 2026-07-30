@@ -3,13 +3,13 @@ name: dns
 on:
   pull_request:
     paths:
-      - "dns/**"
+      - "dns/rubyci.org/**"
       - ".github/workflows/dns.yml"
   push:
     branches:
       - master
     paths:
-      - "dns/**"
+      - "dns/rubyci.org/**"
       - ".github/workflows/dns.yml"
 
 permissions:
@@ -19,13 +19,14 @@ env:
   DNSCONTROL_VERSION: 4.44.1
 
 jobs:
+  # Only rubyci.org is applied from CI. ruby-lang.org is pushed by hand; see dns/README.md.
   dns:
     # Secrets are unavailable to fork PRs, so run only for same-repo events
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dns
+        working-directory: dns/rubyci.org
     steps:
       - uses: actions/checkout@v5
       - name: Install dnscontrol
@@ -36,9 +37,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: dnscontrol preview --creds creds.json
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN_RUBYCI: ${{ secrets.CLOUDFLARE_API_TOKEN_RUBYCI }}
       - name: Push
         if: github.event_name == 'push'
         run: dnscontrol push --creds creds.json
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN_RUBYCI: ${{ secrets.CLOUDFLARE_API_TOKEN_RUBYCI }}

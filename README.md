@@ -4,7 +4,7 @@
 
 ### Prepare environment for hocho apply
 
-After launching a VM and assigning the Elastic IP (DNS records are managed under `dns/`), bootstrap the host with the cloud image's default user:
+After launching a VM and assigning the Elastic IP (DNS records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:
 
 ```bash
 bin/bootstrap -i ~/.ssh/aws-keypair.pem fedora@fedora44-arm.rubyci.org
