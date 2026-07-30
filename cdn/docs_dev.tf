@@ -59,4 +59,13 @@ resource "fastly_service_vcl" "docs_dev" {
     timer_support    = false
     xff              = "append"
   }
+
+  # Production docs intentionally has no custom VCL. This file is the
+  # behavior-neutral boilerplate equivalent, uploaded so VCL-level changes can
+  # be canaried on docs-dev before deciding how to apply them to production.
+  vcl {
+    content = file("${path.module}/vcl/docs_dev.vcl")
+    main    = true
+    name    = "default"
+  }
 }
