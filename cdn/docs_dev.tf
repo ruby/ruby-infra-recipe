@@ -1,7 +1,6 @@
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
-  default_host       = "docs-origin.ruby-lang.org"
   default_ttl        = 60
   http3              = false
   name               = "docs-dev.ruby-lang.org"
