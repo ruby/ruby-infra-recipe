@@ -19,6 +19,7 @@ env:
   DNSCONTROL_VERSION: 4.44.1
 
 jobs:
+  # Only rubyci.org is applied from CI. ruby-lang.org is pushed by hand; see dns/README.md.
   dns:
     # Secrets are unavailable to fork PRs, so run only for same-repo events
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
