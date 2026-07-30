@@ -77,7 +77,9 @@ When `attributes.chkbuild.command` is `start-cross-rubyci`, `recipes/crossruby.r
 
 ### macOS hosts (fuji, ringo)
 
-The macOS hosts are addressed by the ssh aliases `fuji` and `ringo` from `~/.ssh/config`, not by rubyci.org names. Everything runs as the pre-existing user named by `attributes.chkbuild.user` in `hosts.yml`, currently the hsbt login user. `recipes/macos.rb` manages the MacPorts build dependencies, rbenv with aws-sdk-s3 as a default gem, the chkbuild checkouts under `~/Documents` and the crontab. OS provisioning, Xcode Command Line Tools and the MacPorts installer itself are out of scope. sudo must be passwordless, via a drop-in in `/private/etc/sudoers.d` (the file name must not contain a period). With that in place `bin/hocho apply fuji` works like any other host.
+The macOS hosts are addressed by the ssh aliases `fuji` and `ringo` from `~/.ssh/config`, not by rubyci.org names. Everything runs as the pre-existing user named by `attributes.chkbuild.user` in `hosts.yml`, currently the hsbt login user. `recipes/macos.rb` manages the MacPorts build dependencies, rbenv with aws-sdk-s3 as a default gem, the chkbuild checkouts and the crontab. OS provisioning, Xcode Command Line Tools and the MacPorts installer itself are out of scope. sudo must be passwordless, via a drop-in in `/private/etc/sudoers.d` (the file name must not contain a period). With that in place `bin/hocho apply fuji` works like any other host.
+
+Keep the checkouts out of `~/Desktop`, `~/Documents` and `~/Downloads`. macOS TCC denies a cron-launched rbenv ruby access to those directories, and because the crontab sets `MAILTO=""` the build dies without a trace: no build directory, no line in `tmp/build/.lock`, no mail. `sudo log show --start "<cron minute>" --info` on the host shows the `sandboxd rejected approval request from ruby for kTCCServiceSystemPolicyDocumentsFolder` denial. Running the same command by hand over ssh succeeds, because sshd holds Full Disk Access and the child inherits it.
 
 ### All chkbuild
 

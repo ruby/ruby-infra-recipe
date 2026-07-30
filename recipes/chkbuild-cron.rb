@@ -10,8 +10,7 @@ if chkbuild[:nickname]
   # hosts run everything as the hsbt login user (attributes.chkbuild.user).
   user = chkbuild[:user] || 'chkbuild'
   home = node[:platform] == 'darwin' ? "/Users/#{user}" : "/home/#{user}"
-  # chkbuild checkout relative to the home directory (attributes.chkbuild.dir);
-  # the macOS hosts historically use ~/Documents/cb, not ~/chkbuild.
+  # chkbuild checkout relative to the home directory (attributes.chkbuild.dir).
   dir = chkbuild[:dir] || 'chkbuild'
 
   # Non-EC2 hosts (aws_credentials_file in hosts.yml) cannot use an
