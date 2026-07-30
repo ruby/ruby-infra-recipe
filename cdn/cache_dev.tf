@@ -3,9 +3,9 @@ resource "fastly_service_vcl" "cache_dev" {
   stage              = false
   default_host       = "ftp.r-l.o.s3.amazonaws.com"
   default_ttl        = 3600
-  http3              = false
+  http3              = true
   name               = "cache-dev.ruby-lang.org"
-  stale_if_error     = false
+  stale_if_error     = true
   stale_if_error_ttl = 43200
 
   backend {
@@ -20,9 +20,14 @@ resource "fastly_service_vcl" "cache_dev" {
     max_lifetime          = 0
     max_use               = 0
     name                  = "cache-ruby-lang.herokuapp.com"
+    # Rewriting Host in custom VCL instead would send the shield a Host that is
+    # not a domain of this service, which fails the shield fetch and only works
+    # because the 5xx restart then bypasses the shield.
+    override_host         = "cache-ruby-lang.herokuapp.com"
     port                  = 443
     prefer_ipv6           = false
-    request_condition     = "always_false"
+    request_condition     = "url-is-index-app"
+    shield                = "iad-va-us"
     ssl_cert_hostname     = "cache-ruby-lang.herokuapp.com"
     ssl_check_cert        = true
     use_ssl               = true
@@ -71,10 +76,15 @@ resource "fastly_service_vcl" "cache_dev" {
     weight                = 100
   }
 
+  # Replaces the always_false placeholder that used to keep this backend out of
+  # the generated selection. Routing through a condition instead of assigning
+  # req.backend in custom VCL is what lets the shield apply. The flag is set
+  # before #FASTLY recv in vcl/cache.vcl, and again in vcl_fetch before the
+  # restart that falls back to the index app.
   condition {
-    name      = "always_false"
+    name      = "url-is-index-app"
     priority  = 10
-    statement = "!req.url"
+    statement = "req.http.X-Rlo-Use-Index-App"
     type      = "REQUEST"
   }
 
@@ -103,9 +113,9 @@ resource "fastly_service_vcl" "cache_dev" {
     token             = var.datadog_token
   }
 
-  # Shared with the cache service on purpose. Both define the same backend
-  # names, so the generated identifiers (F_s3_amazonaws_com and friends) match,
-  # and a canary is only worth running on the VCL production actually uses.
+  # Shared with the cache service again now that production runs the same VCL.
+  # Split it back out into a cache_dev-only file when the next VCL change needs
+  # a canary.
   vcl {
     content = file("${path.module}/vcl/cache.vcl")
     main    = true
