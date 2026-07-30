@@ -2,9 +2,9 @@ resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
   default_ttl        = 60
-  http3              = false
+  http3              = true
   name               = "docs-dev.ruby-lang.org"
-  stale_if_error     = false
+  stale_if_error     = true
   stale_if_error_ttl = 43200
 
   backend {

@@ -3,9 +3,9 @@ resource "fastly_service_vcl" "cache_dev" {
   stage              = false
   default_host       = "ftp.r-l.o.s3.amazonaws.com"
   default_ttl        = 3600
-  http3              = false
+  http3              = true
   name               = "cache-dev.ruby-lang.org"
-  stale_if_error     = false
+  stale_if_error     = true
   stale_if_error_ttl = 43200
 
   backend {
@@ -23,6 +23,7 @@ resource "fastly_service_vcl" "cache_dev" {
     port                  = 443
     prefer_ipv6           = false
     request_condition     = "always_false"
+    shield                = "iad-va-us"
     ssl_cert_hostname     = "cache-ruby-lang.herokuapp.com"
     ssl_check_cert        = true
     use_ssl               = true
@@ -44,6 +45,7 @@ resource "fastly_service_vcl" "cache_dev" {
     port                  = 443
     prefer_ipv6           = false
     request_condition     = "url-is-sorah-deb"
+    shield                = "tyo-tokyo-jp"
     ssl_cert_hostname     = "s3-ap-northeast-1.amazonaws.com"
     ssl_check_cert        = true
     use_ssl               = true
