@@ -16,6 +16,8 @@ The split is forced. The list minifies past 27000 characters, a role's inline po
 
 Do not swap this for the AWS managed `ReadOnlyAccess`. It grants data plane reads the list never asks for, `s3:GetObject` on every bucket in the account among them, and it still omits the five writes Datadog uses to wire up log forwarding, so the health check stays red.
 
+Metrics collection and extended resource collection are both on, which is what gives the rubyci EC2 hosts their CPU, disk and network metrics. Resource collection additionally needs the AWS managed `SecurityAudit` policy, which the permissions API does not list; without it the integration screen reports missing permissions. `aws_regions` stays `ap-northeast-1`: every instance in the account is there, and `hosts.yml` records no region, so re-check AWS rather than that file if the fleet spreads.
+
 ## Querying the archive
 
 Anything older than the index retention lives only in S3. `athena.tf` registers it as `ruby_lang_logs.fastly` in the `ruby-lang-logs` workgroup. Partition projection covers `dt` and `hour`, so no crawler runs and no partition ever needs adding.

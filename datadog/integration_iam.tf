@@ -62,3 +62,18 @@ resource "aws_iam_role_policy_attachment" "datadog_integration" {
   role       = aws_iam_role.datadog.name
   policy_arn = aws_iam_policy.datadog_integration[count.index].arn
 }
+
+# Resource collection asks for this on top of the list above, and the list does
+# not mention it: with extended_collection on and this missing, the integration
+# screen reports "Unable to collect the necessary resources due to missing
+# permissions" and names this policy directly. It is what resolves an EC2 metric
+# to a named rubyci host rather than an instance ID.
+#
+# Read-only, and narrower on the data plane than ReadOnlyAccess would be: the
+# only S3 object actions in it are GetObjectAcl and GetObjectTagging, so it reads
+# object metadata but never object contents. AWS maintains the contents, which is
+# the point of using the managed policy rather than copying it.
+resource "aws_iam_role_policy_attachment" "datadog_security_audit" {
+  role       = aws_iam_role.datadog.name
+  policy_arn = "arn:aws:iam::aws:policy/SecurityAudit"
+}
