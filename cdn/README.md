@@ -2,6 +2,8 @@
 
 Terraform configuration for the Fastly services of ruby-lang.org. Each service lives in its own `.tf` file. Custom VCL is under `vcl/`, and the shared Datadog log format is `logging/datadog_format.json`.
 
+Datadog is the only log sink. Long term storage of the same events runs through Datadog's S3 log archive, managed in `datadog/`, because the index retention this org's contract allows is 15 days.
+
 The `ftp` service has been dormant since 2018 and is kept with `activate = false`. `ftp.ruby-lang.org` is actually served by the `cache` service.
 
 The `logs.rubyci.org` service fronts the public `rubyci` S3 bucket (chkbuild logs). Switching rubyci.org log links over to it happens in the ruby/rubyci repository.
@@ -12,7 +14,7 @@ Two things about the Fastly API token. It needs the TLS management permission, w
 
 ## Usage
 
-Credentials come from `~/.config/fastly/token.sh`, which must export `FASTLY_API_KEY` (global scope token), `TF_VAR_datadog_token`, `TF_VAR_logging_s3_access_key`, and `TF_VAR_logging_s3_secret_key`. The state backend also needs AWS credentials that can read and write `s3://ruby-lang-terraform-state`, supplied through any standard AWS mechanism such as `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
+Credentials come from `~/.config/fastly/token.sh`, which must export `FASTLY_API_KEY` (global scope token) and `TF_VAR_datadog_token`. The state backend also needs AWS credentials that can read and write `s3://ruby-lang-terraform-state`, supplied through any standard AWS mechanism such as `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
 
 ```
 source ~/.config/fastly/token.sh

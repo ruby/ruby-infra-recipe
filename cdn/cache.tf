@@ -117,23 +117,11 @@ resource "fastly_service_vcl" "cache" {
     token             = var.datadog_token
   }
 
-  logging_s3 {
-    bucket_name       = "ftp.r-l.o.log"
-    domain            = "s3.amazonaws.com"
-    file_max_bytes    = 0
-    format            = "%h %l %u %t \"%r\" %>s %b"
-    format_version    = 2
-    gzip_level        = 0
-    message_type      = "classic"
-    name              = "ftp.r-l.o.log"
-    path              = "/"
-    period            = 3600
-    processing_region = "none"
-    redundancy        = "standard"
-    s3_access_key     = var.logging_s3_access_key
-    s3_secret_key     = var.logging_s3_secret_key
-    timestamp_format  = "%Y-%m-%dT%H:%M:%S.000"
-  }
+  # The direct S3 sink is gone. It was this service only, in common log format,
+  # so it carried no user agent, no referer and no cache state. Long term storage
+  # now runs through Datadog's log archive for all six services, which is managed
+  # in datadog/ and queried with Athena. Objects already in ftp.r-l.o.log are
+  # untouched, only new writes stopped.
 
   vcl {
     content = file("${path.module}/vcl/cache.vcl")
