@@ -3,13 +3,13 @@ name: dns
 on:
   pull_request:
     paths:
-      - "dns/**"
+      - "dns/rubyci.org/**"
       - ".github/workflows/dns.yml"
   push:
     branches:
       - master
     paths:
-      - "dns/**"
+      - "dns/rubyci.org/**"
       - ".github/workflows/dns.yml"
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dns
+        working-directory: dns/rubyci.org
     steps:
       - uses: actions/checkout@v5
       - name: Install dnscontrol
