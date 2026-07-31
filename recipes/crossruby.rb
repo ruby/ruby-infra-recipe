@@ -3,6 +3,24 @@
 # i.e. the host builds cross targets instead of plain ruby branches.
 # The host is Ubuntu; no other platform is supported here.
 
+# wasm-opt peaks at ~3.4 GB anon RSS while the host has 3.8 GB and no swap.
+# The resulting global OOM thrash has repeatedly stalled systemd-networkd's
+# DHCPv4 renewal, dropping ens5 (and ssh) until a reboot.
+execute 'create /swapfile' do
+  command 'fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile'
+  not_if 'test -e /swapfile'
+end
+
+execute 'enable /swapfile' do
+  command 'swapon /swapfile'
+  not_if 'swapon --show=NAME --noheadings | grep -qx /swapfile'
+end
+
+execute 'register /swapfile in /etc/fstab' do
+  command "echo '/swapfile none swap sw 0 0' >> /etc/fstab"
+  not_if 'grep -q "^/swapfile " /etc/fstab'
+end
+
 # start-cross-rubyci probes each cross compiler with Util.search_command and
 # skips targets whose compiler is missing, so this list is what makes the
 # linux/mingw targets actually build. mips (big-endian) and s390 are also
