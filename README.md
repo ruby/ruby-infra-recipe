@@ -111,6 +111,21 @@ bin/os-update fedora43.rubyci.org
 bin/all-hosts bin/os-update
 ```
 
+### Reboots
+
+`bin/reboot` reboots a single EC2 host through the EC2 API, so a host whose ssh has wedged can still be recycled from the command line. RebootInstances asks the guest OS to reboot and hard-resets only if it does not answer within a few minutes, so it suits a healthy host too. `hosts.yml` carries no instance id, so the host name is resolved through DNS and the instance is looked up by that address. That is exact where the `Name` tag is not: `riscv.rubyci.org` runs on `rubyci-riscv64` and a stopped `rubyci-riscv` still exists. The non-EC2 hosts are skipped. The region is fixed to `ap-northeast-1`; the AWS CLI is expected to be configured with credentials for the account holding the instances.
+
+```bash
+# resolve the instance and dry-run the API call
+bin/reboot -n fedora43.rubyci.org
+
+# reboot
+bin/reboot fedora43.rubyci.org
+
+# all hosts
+bin/all-hosts bin/reboot
+```
+
 ## License
 
 [Ruby License](https://www.ruby-lang.org/en/about/license.txt)
