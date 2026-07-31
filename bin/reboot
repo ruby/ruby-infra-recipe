@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Reboot a single EC2 host from hosts.yml through the EC2 API.
+#
+# Usage: bin/reboot [-n] <host>
+#   -n  resolve the instance and dry-run the API call, do not reboot
+#
+# RebootInstances asks the guest OS to reboot and falls back to a hard reset
+# after a few minutes, so this works both for a healthy host and for one whose
+# ssh has wedged. Use `bin/all-hosts bin/reboot` to reboot every host at once.
+#
+# The AWS CLI is expected to be configured with credentials for the account
+# holding the instances.
+
+require 'open3'
+require 'optparse'
+require 'resolv'
+require 'yaml'
+
+# Every EC2 host in hosts.yml runs in the Tokyo region.
+REGION = 'ap-northeast-1'
+
+dry_run = false
+opt = OptionParser.new
+opt.banner = 'usage: bin/reboot [-n] <host>'
+opt.on('-n', 'dry-run the API call') { dry_run = true }
+args = opt.parse(ARGV)
+abort opt.banner unless args.size == 1
+host = args.first
+
+Dir.chdir(File.expand_path('..', __dir__))
+properties = YAML.load_file('hosts.yml').dig(host, 'properties')
+abort "#{host} is not in hosts.yml" unless properties
+
+# The few non-EC2 hosts (OSU, IBM LinuxONE, the macOS pair) are the ones with
+# no instance profile, which hosts.yml already marks with aws_credentials_file.
+if properties.dig('attributes', 'chkbuild', 'aws_credentials_file')
+  puts "reboot: host=#{host} status=skipped (not an EC2 instance)"
+  exit
+end
+
+def aws(*command)
+  out, err, status = Open3.capture3('aws', '--region', REGION, *command)
+  abort "aws #{command.first(2).join(' ')} failed: #{err.strip}" unless status.success?
+  out
+end
+
+# hosts.yml carries no instance id, so go through the address: the host name
+# resolves to the Elastic IP that the instance holds.
+address = begin
+  Resolv.getaddress(host)
+rescue Resolv::ResolvError => e
+  abort "cannot resolve #{host}: #{e.message}"
+end
+
+ids = aws('ec2', 'describe-instances',
+          '--filters', "Name=ip-address,Values=#{address}",
+          '--query', 'Reservations[].Instances[].InstanceId',
+          '--output', 'text').split
+# A stopped instance keeps its Elastic IP association but reports no public
+# address, so it does not match the filter either.
+abort "no running instance has the address #{address} (#{host})" if ids.empty?
+
+if dry_run
+  # A dry run always fails; DryRunOperation is what success looks like.
+  _out, err, = Open3.capture3('aws', '--region', REGION,
+                              'ec2', 'reboot-instances', '--dry-run', '--instance-ids', *ids)
+  abort "dry run failed: #{err.strip}" unless err.include?('DryRunOperation')
+  puts "reboot: host=#{host} instance=#{ids.join(',')} status=dry-run"
+  exit
+end
+
+aws('ec2', 'reboot-instances', '--instance-ids', *ids)
+puts "reboot: host=#{host} instance=#{ids.join(',')} status=rebooting"
