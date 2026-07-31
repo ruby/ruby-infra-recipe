@@ -21,6 +21,25 @@ execute 'register /swapfile in /etc/fstab' do
   not_if 'grep -q "^/swapfile " /etc/fstab'
 end
 
+# Second line of defense: if a DHCPv4 renewal fails again anyway, keep the
+# leased address instead of tearing ens5 down. netplan cannot express
+# KeepConfiguration, so drop in an override for its generated
+# /run/systemd/network/10-netplan-ens5.network.
+directory '/etc/systemd/network/10-netplan-ens5.network.d' do
+  mode '755'
+end
+
+file '/etc/systemd/network/10-netplan-ens5.network.d/keep-configuration.conf' do
+  mode '644'
+  content "[Network]\nKeepConfiguration=dhcp\n"
+  notifies :run, 'execute[reload systemd-networkd]'
+end
+
+execute 'reload systemd-networkd' do
+  command 'networkctl reload'
+  action :nothing
+end
+
 # start-cross-rubyci probes each cross compiler with Util.search_command and
 # skips targets whose compiler is missing, so this list is what makes the
 # linux/mingw targets actually build. mips (big-endian) and s390 are also
