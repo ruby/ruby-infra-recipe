@@ -13,5 +13,14 @@ terraform {
       source  = "fastly/fastly"
       version = "~> 9.4"
     }
+
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.57"
+    }
   }
+}
+
+provider "aws" {
+  region = "ap-northeast-1"
 }
