@@ -109,16 +109,10 @@ data "aws_iam_policy_document" "log_archive" {
     resources = [aws_s3_bucket.log_archive.arn]
   }
 
-  # Nothing to do with the archive. The integration health check calls this even
-  # with metrics_config disabled, and without it the AWS integration screen sits
-  # on a permanent "missing critical IAM permissions" alert that reads like a
-  # real outage. It lists metric names only, never values, and does not turn
-  # metrics collection back on. The action takes no resource qualifier.
-  statement {
-    effect    = "Allow"
-    actions   = ["cloudwatch:ListMetrics"]
-    resources = ["*"]
-  }
+  # This policy stays scoped to the archive bucket. The cloudwatch:ListMetrics
+  # statement that used to sit here was a stopgap against the integration health
+  # check, and integration_iam.tf now covers it under cloudwatch:List* along with
+  # the rest of Datadog's list.
 }
 
 resource "aws_iam_role_policy" "log_archive" {
@@ -128,10 +122,10 @@ resource "aws_iam_role_policy" "log_archive" {
 }
 
 # The archive authenticates by assuming the role above, and Datadog only allows
-# that for an account registered here. Metrics, traces and resource collection
-# stay off, because the role carries S3 permissions and nothing else. Collecting
-# CloudWatch metrics for the rubyci fleet is worth doing, but it needs a far
-# wider IAM policy and belongs in its own change.
+# that for an account registered here. The role now carries Datadog's full read
+# only list from integration_iam.tf, so metrics and resource collection are on
+# and this is the fleet's host level monitoring: the roughly 26 rubyci EC2 hosts
+# in hosts.yml have no other source of CPU, disk or network metrics.
 resource "datadog_integration_aws_account" "main" {
   aws_account_id = data.aws_caller_identity.current.account_id
   aws_partition  = "aws"
@@ -141,6 +135,11 @@ resource "datadog_integration_aws_account" "main" {
   # policy into a diff that never settles.
   account_tags = []
 
+  # Every EC2 instance in the account is here: a sweep of all 17 enabled regions
+  # found 26 in ap-northeast-1 and none anywhere else. hosts.yml carries no
+  # region of its own, it is a list of host names, so AWS is the thing to re-check
+  # if the fleet ever spreads. Listing regions that hold nothing would only add
+  # empty CloudWatch polls.
   aws_regions {
     include_only = ["ap-northeast-1"]
   }
@@ -156,13 +155,21 @@ resource "datadog_integration_aws_account" "main" {
   }
 
   metrics_config {
-    enabled = false
+    enabled = true
 
+    # Empty is not "no filtering": the provider reads it as the default
+    # exclude_only of AWS/SQS, AWS/ElasticMapReduce and AWS/Usage. None of the
+    # three is in use here, so the effect is every namespace this account has.
     namespace_filters {}
   }
 
+  # Adds configuration and tags to the resources behind the metrics, which is
+  # what makes an EC2 metric resolve to a named rubyci host instead of an
+  # instance ID. Both this and metrics_config.enabled default to true in the
+  # provider; they were only pinned off while the role held S3 permissions and
+  # nothing else.
   resources_config {
-    extended_collection = false
+    extended_collection = true
   }
 
   traces_config {

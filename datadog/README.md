@@ -1,12 +1,22 @@
 # datadog
 
-Terraform configuration for the Datadog org (AP1) that receives the Fastly CDN logs from `cdn/`. `index.tf` holds the retention of the `main` index, `archive.tf` the S3 log archive and the AWS integration role it assumes.
+Terraform configuration for the Datadog org (AP1) that receives the Fastly CDN logs from `cdn/`. `index.tf` holds the retention of the `main` index, `archive.tf` the S3 log archive and the AWS integration role it assumes, `integration_iam.tf` the read-only permissions on that role.
 
-Retention is two tiered. The `main` index keeps events queryable for a year, Standard Tier for the first 30 days and Flex Tier after that, and the archive holds the same events in S3 from ingest onwards. Datadog has no setting that moves logs to S3 after N months, so the archive is written continuously and the index expiry is what decides when S3 holds the only copy. Reading past that age means rehydrating the archive back into an index.
+There are two copies, not two tiers. The `main` index keeps events queryable for 15 days, which is the ceiling this org's contract allows, and the archive holds the same events in S3 from ingest onwards. The Flex Tier is not in the contract: setting `flex_retention_days` at all answers 403, as does any `retention_days` above 15. Datadog has no setting that moves logs to S3 after N months, so the archive is written continuously and the index expiry is what decides when S3 holds the only copy. Reading past 15 days means rehydrating the archive back into an index.
 
-The bucket lifecycle cools objects to `GLACIER_IR` at the same age. That is the coldest storage class Datadog can read directly, so do not push it further to Deep Archive.
+The bucket lifecycle cools objects to `GLACIER_IR` after a year, long after the index has stopped covering them. That is the coldest storage class Datadog can read directly, so do not push it further to Deep Archive.
 
-The archive is scoped to `source:fastly`. Heroku application logs stay out of it, since they carry more than CDN access data and nothing asked for a year of them.
+The archive is scoped to `source:fastly`. Heroku application logs stay out of it, since they carry more than CDN access data and nothing asked to keep them indefinitely.
+
+## AWS integration permissions
+
+`integration_iam.tf` grants `DatadogIntegrationRole` the read-only actions Datadog publishes at `/api/v2/integration/aws/iam_permissions`, kept verbatim in `iam_permissions.json`. Refresh it with the `curl` in the header of that file and review the diff; nothing else needs editing, because the split into policies is computed.
+
+The split is forced. The list minifies past 27000 characters, a role's inline policies cap at 10240 in aggregate, and customer managed policies cap at 6144 but attach 10 to a role. `chunklist` cuts it at 180 actions, currently 5 policies named `DatadogIntegrationReadOnly-N`. Adding permissions adds policies rather than growing them, so the only ceiling that matters is 10.
+
+Do not swap this for the AWS managed `ReadOnlyAccess`. It grants data plane reads the list never asks for, `s3:GetObject` on every bucket in the account among them, and it still omits the five writes Datadog uses to wire up log forwarding, so the health check stays red.
+
+Metrics collection and extended resource collection are both on, which is what gives the rubyci EC2 hosts their CPU, disk and network metrics. Resource collection additionally needs the AWS managed `SecurityAudit` policy, which the permissions API does not list; without it the integration screen reports missing permissions. `aws_regions` stays `ap-northeast-1`: every instance in the account is there, and `hosts.yml` records no region, so re-check AWS rather than that file if the fleet spreads.
 
 ## Querying the archive
 
