@@ -1,8 +1,9 @@
 # gem-codesearch.dev.ruby-lang.org: full-text search over the latest version
 # of every gem on rubygems.org, via https://github.com/akr/gem-codesearch.
-# Committers ssh in and run /usr/local/bin/gem-codesearch; a daily cron job
-# refreshes the rubygems mirror, the unpacked tree in /srv/gems and the
-# csearch indexes.
+# Committers ssh in and run /usr/local/bin/gem-codesearch, or query the MCP
+# server on https://gem-codesearch.dev.ruby-lang.org/ (see README.md); a
+# daily cron job refreshes the rubygems mirror, the unpacked tree in
+# /srv/gems and the csearch indexes.
 
 include_recipe "setup-users"
 
@@ -53,6 +54,7 @@ end
 git checkout do
   repository 'https://github.com/akr/gem-codesearch.git'
   user 'gem-codesearch'
+  notifies :restart, 'service[gem-codesearch-mcp]'
 end
 
 # Search entry point for committers (ssh ... gem-codesearch PATTERN). The
@@ -107,4 +109,125 @@ end
 
 execute "crontab -u gem-codesearch #{crontab_path}" do
   not_if "crontab -l -u gem-codesearch 2>/dev/null | cmp -s - #{crontab_path}"
+end
+
+# --- MCP server (config.ru in the checkout, akr/gem-codesearch#15) ---
+# nginx terminates TLS on 443 and proxies to a puma bound to localhost:9292.
+# mame's own services (mame.dev.ruby-lang.org, /etc/nginx/sites-*/ssl.conf,
+# systemd user units) live on the same host and are intentionally not
+# managed here.
+
+# Toolchain for puma's native extension; mcp and rack are pure Ruby.
+package 'ruby-dev'
+package 'build-essential'
+package 'libssl-dev'
+gem_package 'mcp'
+
+# The Ubuntu puma (5.5.2) and ruby-rack (2.1.4) debs register themselves as
+# installed gems, so gem_package would consider them present and skip. Use
+# version-guarded installs instead; the app is developed against rack 3,
+# and RubyGems activates the newest installed version at require time.
+execute 'gem install rack' do
+  not_if "gem list -i rack -v '>= 3'"
+end
+
+execute 'gem install puma' do
+  not_if "gem list -i puma -v '>= 6'"
+end
+
+directory '/etc/gem-codesearch' do
+  mode '755'
+end
+
+# Bearer token required by the MCP app. Generated on the host on first
+# apply and never stored in this repository; see README.md for how to read
+# or rotate it.
+execute 'generate gem-codesearch MCP token' do
+  command "umask 077 && printf 'GEM_CODESEARCH_MCP_TOKEN=%s\\n' \"$(openssl rand -hex 32)\" > /etc/gem-codesearch/mcp-token.env"
+  not_if 'test -s /etc/gem-codesearch/mcp-token.env'
+end
+
+# gem_package puma installs into /usr/local/bin; /usr/bin/puma is the
+# unrelated Ubuntu package left for mame's setups.
+file '/etc/systemd/system/gem-codesearch-mcp.service' do
+  mode '644'
+  content [
+    '[Unit]',
+    'Description=gem-codesearch MCP server',
+    'After=network.target',
+    '',
+    '[Service]',
+    'User=gem-codesearch',
+    "WorkingDirectory=#{checkout}",
+    "Environment=GEM_CODESEARCH_DIR=#{checkout}",
+    'Environment=GEM_CODESEARCH_GEM_DIR=/srv/gems',
+    'EnvironmentFile=/etc/gem-codesearch/mcp-token.env',
+    'ExecStart=/usr/local/bin/puma -b tcp://127.0.0.1:9292 config.ru',
+    'Restart=on-failure',
+    '',
+    '[Install]',
+    'WantedBy=multi-user.target',
+    '',
+  ].join("\n")
+  notifies :run, 'execute[systemctl daemon-reload]'
+  notifies :restart, 'service[gem-codesearch-mcp]'
+end
+
+execute 'systemctl daemon-reload' do
+  action :nothing
+end
+
+service 'gem-codesearch-mcp' do
+  action [:enable, :start]
+end
+
+# The certificate was obtained manually on the host with certbot
+# (authenticator/installer nginx) before this recipe existed; renewal is
+# automatic via certbot's systemd timer. proxy_buffering off because the
+# MCP Streamable HTTP transport may answer with SSE streams.
+package 'nginx'
+
+file '/etc/nginx/sites-available/gem-codesearch-mcp.conf' do
+  mode '644'
+  content [
+    'server {',
+    '    listen 443 ssl;',
+    '    listen [::]:443 ssl;',
+    '    server_name gem-codesearch.dev.ruby-lang.org;',
+    '',
+    '    ssl_certificate /etc/letsencrypt/live/gem-codesearch.dev.ruby-lang.org/fullchain.pem;',
+    '    ssl_certificate_key /etc/letsencrypt/live/gem-codesearch.dev.ruby-lang.org/privkey.pem;',
+    '    include /etc/letsencrypt/options-ssl-nginx.conf;',
+    '    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;',
+    '',
+    '    location / {',
+    '        proxy_pass http://127.0.0.1:9292;',
+    '        proxy_http_version 1.1;',
+    '        proxy_set_header Host $host;',
+    '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
+    '        proxy_set_header X-Forwarded-Proto https;',
+    '        proxy_buffering off;',
+    '        proxy_read_timeout 120s;',
+    '    }',
+    '}',
+    '',
+    'server {',
+    '    listen 80;',
+    '    listen [::]:80;',
+    '    server_name gem-codesearch.dev.ruby-lang.org;',
+    '    return 301 https://$host$request_uri;',
+    '}',
+    '',
+  ].join("\n")
+  notifies :run, 'execute[reload nginx]'
+end
+
+link '/etc/nginx/sites-enabled/gem-codesearch-mcp.conf' do
+  to '/etc/nginx/sites-available/gem-codesearch-mcp.conf'
+  notifies :run, 'execute[reload nginx]'
+end
+
+execute 'reload nginx' do
+  command 'nginx -t && systemctl reload nginx'
+  action :nothing
 end
