@@ -126,6 +126,28 @@ bin/reboot fedora43.rubyci.org
 bin/all-hosts bin/reboot
 ```
 
+### gem-codesearch MCP server (gem-codesearch.dev.ruby-lang.org)
+
+`recipes/gem-codesearch.rb` runs the MCP server from [akr/gem-codesearch](https://github.com/akr/gem-codesearch) as the systemd unit `gem-codesearch-mcp` (puma on localhost:9292) behind nginx, which terminates TLS with a certbot certificate obtained manually on the host. mame's services on the same host (`mame.dev.ruby-lang.org`, `/etc/nginx/sites-available/ssl.conf`, systemd user units) are not managed by this repository.
+
+The server requires a Bearer token. It is generated on the host at first apply with `openssl rand -hex 32` into `/etc/gem-codesearch/mcp-token.env` and is never stored in this repository. To read it:
+
+```bash
+ssh gem-codesearch.dev.ruby-lang.org sudo cat /etc/gem-codesearch/mcp-token.env
+```
+
+To rotate it, remove the file, re-apply, and restart the unit:
+
+```bash
+ssh gem-codesearch.dev.ruby-lang.org "sudo rm /etc/gem-codesearch/mcp-token.env" && bin/hocho apply gem-codesearch.dev.ruby-lang.org && ssh gem-codesearch.dev.ruby-lang.org sudo systemctl restart gem-codesearch-mcp
+```
+
+Client registration:
+
+```bash
+claude mcp add --transport http gem-codesearch https://gem-codesearch.dev.ruby-lang.org/ --header "Authorization: Bearer <token>"
+```
+
 ## License
 
 [Ruby License](https://www.ruby-lang.org/en/about/license.txt)
