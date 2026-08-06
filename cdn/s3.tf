@@ -86,6 +86,90 @@ resource "aws_s3_bucket_lifecycle_configuration" "ftp" {
   }
 }
 
+# Origin of the docs service (docs.ruby-lang.org), canaried on docs-dev first.
+# Prefixes and their writers:
+#   (root)          -- ruby/docs.ruby-lang.org public/ (robots.txt, llms.txt, sitemap.xml, index pages, assets)
+#   en/<version>/   -- ruby/actions docs.yml (extracted RDoc HTML; frozen 3.0/3.1 synced once by hand)
+#   ja/<version>/   -- rurema/generated-documents html/ja/* (latest/master are resolved at the
+#                      edge from the docs_versions dictionary; no symlink objects in the bucket)
+#   capi/en/master/ -- ruby/actions doxygen.yml, once it moves off the rubyci bucket
+# us-east-1 like ftp.r-l.o: every request comes through Fastly, so client
+# latency does not depend on the bucket region and the cheapest tier wins.
+resource "aws_s3_bucket" "docs" {
+  bucket = "docs.r-l.o"
+  region = "us-east-1"
+
+  tags = {
+    Name = "docs.r-l.o"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_s3_bucket_policy" "docs" {
+  bucket = aws_s3_bucket.docs.bucket
+  region = "us-east-1"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "Allow Public Access to All Objects"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = ["s3:GetObject", "s3:GetObjectTagging"]
+        Resource  = ["arn:aws:s3:::docs.r-l.o", "arn:aws:s3:::docs.r-l.o/*"]
+      },
+    ]
+  })
+}
+
+resource "aws_s3_bucket_versioning" "docs" {
+  bucket = aws_s3_bucket.docs.bucket
+  region = "us-east-1"
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "docs" {
+  bucket = aws_s3_bucket.docs.bucket
+  region = "us-east-1"
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "docs" {
+  bucket = aws_s3_bucket.docs.bucket
+  region = "us-east-1"
+
+  transition_default_minimum_object_size = "varies_by_storage_class"
+
+  rule {
+    id     = "lifecycle"
+    status = "Enabled"
+
+    expiration {
+      expired_object_delete_marker = true
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 7
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
 # Origin of the logs.rubyci.org service (chkbuild logs).
 resource "aws_s3_bucket" "rubyci" {
   bucket = "rubyci"
