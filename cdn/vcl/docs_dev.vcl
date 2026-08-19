@@ -10,6 +10,18 @@ sub vcl_recv {
   declare local var.lang STRING;
   declare local var.ver STRING;
   declare local var.rest STRING;
+  declare local var.edge_first_pass BOOL;
+
+  # The redirect rules match client-shaped URLs, so they may only run on
+  # the first pass at the edge. Rewritten URLs come through recv again in
+  # two ways: a restart re-enters it, and a shielded fetch runs this whole
+  # VCL once more at the shield POP. /ja/master rewritten to /ja/<devel>
+  # would match the unreleased-version rule there and 302 back to itself.
+  # ff_visits_this_service, unlike the Fastly-FF header, cannot be spoofed
+  # by the client.
+  if (req.restarts == 0 && fastly.ff_visits_this_service == 0) {
+    set var.edge_first_pass = true;
+  }
 
   if (req.request == "HEAD" || req.request == "GET") {
 
@@ -31,46 +43,48 @@ sub vcl_recv {
     }
 
     # ---- redirects, same rules and order as the nginx origin ----
-    if (req.url ~ "^/en/trunk(.*)$") {
-      set req.http.X-Redirect-Location = "https://docs.ruby-lang.org/en/master" re.group.1;
-      error 601;
-    }
-    # https://github.com/ruby/docs.ruby-lang.org/issues/130
-    if (req.url ~ "^/en/([^/]+)/doc/(.*)$") {
-      set req.http.X-Redirect-Location = "/en/" re.group.1 "/" re.group.2;
-      error 601;
-    }
-    # 2.8.0 was renamed to 3.0.0, and the directory is 3.0
-    if (req.url ~ "^/(en|ja)/(2\.8\.0|3\.0\.0)(.*)$") {
-      set req.http.X-Redirect-Location = "/" re.group.1 "/3.0" re.group.3;
-      error 601;
-    }
-    # Old rurema-search /ja/search/query:WORD/ URLs; ?q= keeps the
-    # percent-encoding because req.url is still encoded here.
-    if (req.url ~ "^/ja/search/" && req.url ~ "query:") {
-      if (req.url ~ "^/ja/search/(?:[^?]*?/)??query:([^/?]+)") {
-        set req.http.X-Redirect-Location = "/ja/search/?q=" re.group.1;
-      } else {
-        set req.http.X-Redirect-Location = "/ja/search/";
+    if (var.edge_first_pass) {
+      if (req.url ~ "^/en/trunk(.*)$") {
+        set req.http.X-Redirect-Location = "https://docs.ruby-lang.org/en/master" re.group.1;
+        error 601;
       }
-      error 601;
-    }
-
-    # The unreleased version is not public until the release: ja/master
-    # pages point at en/<devel> through their [rdoc] links (which only
-    # exists as en/master), and ja/<devel> itself is not linked from the
-    # version index. Both go to the master alias with a temporary redirect
-    # that disappears once the docs_versions dictionary moves at release.
-    if (req.url ~ "^/(en|ja)/([^/?]+)(/[^?]*)?$") {
-      set var.lang = re.group.1;
-      set var.ver = re.group.2;
-      set var.rest = re.group.3;
-      if (var.ver == table.lookup(docs_versions, "master")) {
-        if (var.rest == "") {
-          set var.rest = "/";
+      # https://github.com/ruby/docs.ruby-lang.org/issues/130
+      if (req.url ~ "^/en/([^/]+)/doc/(.*)$") {
+        set req.http.X-Redirect-Location = "/en/" re.group.1 "/" re.group.2;
+        error 601;
+      }
+      # 2.8.0 was renamed to 3.0.0, and the directory is 3.0
+      if (req.url ~ "^/(en|ja)/(2\.8\.0|3\.0\.0)(.*)$") {
+        set req.http.X-Redirect-Location = "/" re.group.1 "/3.0" re.group.3;
+        error 601;
+      }
+      # Old rurema-search /ja/search/query:WORD/ URLs; ?q= keeps the
+      # percent-encoding because req.url is still encoded here.
+      if (req.url ~ "^/ja/search/" && req.url ~ "query:") {
+        if (req.url ~ "^/ja/search/(?:[^?]*?/)??query:([^/?]+)") {
+          set req.http.X-Redirect-Location = "/ja/search/?q=" re.group.1;
+        } else {
+          set req.http.X-Redirect-Location = "/ja/search/";
         }
-        set req.http.X-Redirect-Location = "/" var.lang "/master" var.rest;
-        error 602;
+        error 601;
+      }
+
+      # The unreleased version is not public until the release: ja/master
+      # pages point at en/<devel> through their [rdoc] links (which only
+      # exists as en/master), and ja/<devel> itself is not linked from the
+      # version index. Both go to the master alias with a temporary redirect
+      # that disappears once the docs_versions dictionary moves at release.
+      if (req.url ~ "^/(en|ja)/([^/?]+)(/[^?]*)?$") {
+        set var.lang = re.group.1;
+        set var.ver = re.group.2;
+        set var.rest = re.group.3;
+        if (var.ver == table.lookup(docs_versions, "master")) {
+          if (var.rest == "") {
+            set var.rest = "/";
+          }
+          set req.http.X-Redirect-Location = "/" var.lang "/master" var.rest;
+          error 602;
+        }
       }
     }
 
@@ -82,7 +96,7 @@ sub vcl_recv {
     # Directory-looking URL without the trailing slash: redirect to the
     # slash form, like nginx did for directories. Every real page has an
     # extension, so no dot in the last segment is a safe heuristic.
-    if (req.url ~ "^/(en|ja|capi)(/|$)" && req.url !~ "\.[^/]+$" && req.url !~ "/$") {
+    if (var.edge_first_pass && req.url ~ "^/(en|ja|capi)(/|$)" && req.url !~ "\.[^/]+$" && req.url !~ "/$") {
       set req.http.X-Redirect-Location = req.url "/";
       error 601;
     }
@@ -147,8 +161,10 @@ sub vcl_fetch {
   }
 
   # A negotiated .md that does not exist falls back to the .html twin
-  # (403 is what public-read S3 answers for a missing key).
-  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3) {
+  # (403 is what public-read S3 answers for a missing key). Edge only: if
+  # the shield restarted instead, the edge would cache the fallback .html
+  # response under the .md cache key it asked the shield for.
+  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && fastly.ff_visits_this_service == 0) {
     set req.http.X-Md-Negotiate = "fallback";
     restart;
   }
