@@ -1,9 +1,10 @@
-# The S3-backend canary for docs.ruby-lang.org. The production service keeps
-# pointing at docs-origin until this proves out, then docs.tf adopts the same
-# shape. Backend selection goes through request_conditions on a header flag the
-# custom VCL sets before #FASTLY recv (assigning req.backend in VCL would
-# bypass shielding, see cache.tf); the docs-origin backend stays as the
-# fallback for unflagged requests so paths can be moved over one at a time.
+# The S3-backend canary for docs.ruby-lang.org: the same backends and the
+# same VCL file as docs.tf, on a Fastly-provided domain, so a VCL or backend
+# change can be applied and probed here before docs.tf picks it up. Backend
+# selection goes through request_conditions on a header flag the custom VCL
+# sets before #FASTLY recv (assigning req.backend in VCL would bypass
+# shielding, see cache.tf); the docs-origin backend stays as the fallback
+# for unflagged requests so paths could be moved back one at a time.
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
@@ -172,7 +173,7 @@ resource "fastly_service_vcl" "docs_dev" {
   }
 
   vcl {
-    content = file("${path.module}/vcl/docs_dev.vcl")
+    content = file("${path.module}/vcl/docs.vcl")
     main    = true
     name    = "default"
   }
