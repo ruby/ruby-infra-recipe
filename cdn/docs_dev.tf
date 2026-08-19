@@ -67,10 +67,13 @@ resource "fastly_service_vcl" "docs_dev" {
   # Doxygen stays in the rubyci bucket for now (step 1 of the migration);
   # dropping this backend and pointing doxygen.yml at the docs bucket's
   # capi/en/master/ prefix is step 2. The bucket name has no dots, so the
-  # virtual-hosted endpoint works as the TLS hostname directly. Unshielded:
+  # virtual-hosted endpoint works as the TLS hostname directly, the same
+  # arrangement as logs_rubyci.tf. override_host is required: default_host
+  # rewrites Host to the docs bucket endpoint, and S3 routes by Host, so
+  # without it these requests would hit the docs bucket. Unshielded:
   # it refreshes every three hours and carries little traffic.
   backend {
-    address               = "rubyci.s3.amazonaws.com"
+    address               = "rubyci.s3.ap-northeast-1.amazonaws.com"
     auto_loadbalance      = false
     between_bytes_timeout = 10000
     connect_timeout       = 1000
@@ -81,10 +84,11 @@ resource "fastly_service_vcl" "docs_dev" {
     max_lifetime          = 0
     max_use               = 0
     name                  = "s3-rubyci-doxygen"
+    override_host         = "rubyci.s3.ap-northeast-1.amazonaws.com"
     port                  = 443
     prefer_ipv6           = false
     request_condition     = "backend-is-doxygen-s3"
-    ssl_cert_hostname     = "rubyci.s3.amazonaws.com"
+    ssl_cert_hostname     = "rubyci.s3.ap-northeast-1.amazonaws.com"
     ssl_check_cert        = true
     use_ssl               = true
     weight                = 100
