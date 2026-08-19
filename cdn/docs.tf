@@ -178,11 +178,15 @@ resource "fastly_service_vcl" "docs" {
   }
 }
 
-# The same values as docs_dev_versions; a release updates both (manage_items
-# stays false, so out-of-band dictionary updates are not reverted by plan).
+# The same values as docs_dev_versions; a release updates both dictionaries
+# out of band (API/UI). manage_items=false (the provider default, explicit
+# here) opts out of reapplying these items when they drift, so a release's
+# update is not reverted by the next apply; these are only the initial
+# values.
 resource "fastly_service_dictionary_items" "docs_versions" {
   service_id    = fastly_service_vcl.docs.id
   dictionary_id = one([for d in fastly_service_vcl.docs.dictionary : d.dictionary_id if d.name == "docs_versions"])
+  manage_items  = false
 
   items = {
     latest = "4.0"

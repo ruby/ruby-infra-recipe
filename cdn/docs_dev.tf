@@ -182,6 +182,7 @@ resource "fastly_service_vcl" "docs_dev" {
 resource "fastly_service_dictionary_items" "docs_dev_versions" {
   service_id    = fastly_service_vcl.docs_dev.id
   dictionary_id = one([for d in fastly_service_vcl.docs_dev.dictionary : d.dictionary_id if d.name == "docs_versions"])
+  manage_items  = false
 
   items = {
     latest = "4.0"
