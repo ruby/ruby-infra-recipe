@@ -221,6 +221,8 @@ sub vcl_fetch {
     }
     if (beresp.status == 404) {
       set beresp.ttl = 60s;
+      set beresp.stale_while_revalidate = 0s;
+      set beresp.stale_if_error = 0s;
     }
 
     # Cache-Control and Surrogate-Key move here from the nginx origin; the
@@ -240,7 +242,14 @@ sub vcl_fetch {
     } else {
       set beresp.http.Surrogate-Key = "index";
     }
-    set beresp.http.Cache-Control = "public, max-age=43200, s-maxage=172800, stale-while-revalidate=86400, stale-if-error=604800";
+    # The 404s are mostly content that has not been synced yet, so the
+    # negative cache must stay short downstream too; the long policy would
+    # sit in a browser for 12 hours.
+    if (beresp.status == 404) {
+      set beresp.http.Cache-Control = "public, max-age=60";
+    } else {
+      set beresp.http.Cache-Control = "public, max-age=43200, s-maxage=172800, stale-while-revalidate=86400, stale-if-error=604800";
+    }
 
     # The generated Markdown twins (given text/markdown by nginx since
     # ruby/docs.ruby-lang.org#200; aws s3 sync cannot guess a type for .md).
