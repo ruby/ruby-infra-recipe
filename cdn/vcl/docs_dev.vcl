@@ -34,6 +34,20 @@ sub vcl_recv {
     unset req.http.X-Docs-Backend;
   }
 
+  # The md fallback restart must run at the edge only, but vcl_fetch cannot
+  # use Fastly-FF to tell the edge from the shield: the clustering hop
+  # between the delivery and fetch node inside a POP also sets it, so it is
+  # present in fetch even at the edge and the fallback never fired. Decide
+  # here instead, where Fastly-FF still means "another Fastly POP sent
+  # this": the edge plants a marker and the shield strips it. On the edge
+  # the marker overwrites any client spoof; a client sending Fastly-FF only
+  # opts itself out of the fallback.
+  if (req.http.Fastly-FF) {
+    unset req.http.X-Docs-Md-Fallback;
+  } elsif (req.restarts == 0) {
+    set req.http.X-Docs-Md-Fallback = "edge";
+  }
+
   if (req.request == "HEAD" || req.request == "GET") {
 
     # Vary: Accept is served on the negotiable /ja/ pages below. Normalize
@@ -169,8 +183,10 @@ sub vcl_fetch {
   # A negotiated .md that does not exist falls back to the .html twin
   # (403 is what public-read S3 answers for a missing key). Edge only: if
   # the shield restarted instead, the edge would cache the fallback .html
-  # response under the .md cache key it asked the shield for.
-  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && !req.http.Fastly-FF) {
+  # response under the .md cache key it asked the shield for. The marker
+  # comes from vcl_recv; Fastly-FF itself is unusable here because the
+  # intra-POP clustering hop sets it on the edge's fetch node too.
+  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && req.http.X-Docs-Md-Fallback == "edge") {
     set req.http.X-Md-Negotiate = "fallback";
     restart;
   }
