@@ -95,8 +95,10 @@ sub vcl_recv {
 
     # Directory-looking URL without the trailing slash: redirect to the
     # slash form, like nginx did for directories. Every real page has an
-    # extension, so no dot in the last segment is a safe heuristic.
-    if (var.edge_first_pass && req.url ~ "^/(en|ja|capi)(/|$)" && req.url !~ "\.[^/]+$" && req.url !~ "/$") {
+    # extension, so no dot in the last segment is the heuristic; a bare
+    # version directory (/ja/4.0, /en/3.4) has dots of its own, so a
+    # two-segment lang/version URL is a directory regardless.
+    if (var.edge_first_pass && req.url ~ "^/(en|ja|capi)(/|$)" && req.url !~ "/$" && (req.url !~ "\.[^/]+$" || req.url ~ "^/(en|ja)/[0-9][^/]*$")) {
       set req.http.X-Redirect-Location = req.url "/";
       error 601;
     }
