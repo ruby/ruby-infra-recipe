@@ -17,18 +17,16 @@ sub vcl_recv {
   # two ways: a restart re-enters it, and a shielded fetch runs this whole
   # VCL once more at the shield POP. /ja/master rewritten to /ja/<devel>
   # would match the unreleased-version rule there and 302 back to itself.
-  # ff_visits_this_service, unlike the Fastly-FF header, cannot be spoofed
-  # by the client.
-  if (req.restarts == 0 && fastly.ff_visits_this_service == 0) {
+  # Fastly-FF marks the shield hop, same as the logging condition. A client
+  # forging it only opts itself out of the redirects; vcl_fetch computes
+  # everything cacheable from the rewritten req.url, not from these headers.
+  if (req.restarts == 0 && !req.http.Fastly-FF) {
     set var.edge_first_pass = true;
   }
 
   # These headers carry state across restarts and to the shield, so on
-  # the first pass anything already present is a client spoof. A forged
-  # X-Orig-Url would change the Surrogate-Key of the cached object,
-  # leaving it stale and unpurgeable by the real keys.
+  # the first pass anything already present is a client spoof.
   if (var.edge_first_pass) {
-    unset req.http.X-Orig-Url;
     unset req.http.X-Md-Negotiate;
     unset req.http.X-Docs-Symlink;
     unset req.http.X-Docs-Version;
@@ -37,13 +35,6 @@ sub vcl_recv {
   }
 
   if (req.request == "HEAD" || req.request == "GET") {
-
-    # Surrogate-Key and redirects are computed from what the client asked
-    # for, so keep the pre-rewrite URL. It survives restarts (markdown
-    # fallback below), so only set it on the first pass.
-    if (!req.http.X-Orig-Url) {
-      set req.http.X-Orig-Url = req.url;
-    }
 
     # Vary: Accept is served on the negotiable /ja/ pages below. Normalize
     # Accept to two values first so the variants cannot explode per client.
@@ -179,7 +170,7 @@ sub vcl_fetch {
   # (403 is what public-read S3 answers for a missing key). Edge only: if
   # the shield restarted instead, the edge would cache the fallback .html
   # response under the .md cache key it asked the shield for.
-  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && fastly.ff_visits_this_service == 0) {
+  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && !req.http.Fastly-FF) {
     set req.http.X-Md-Negotiate = "fallback";
     restart;
   }
@@ -220,8 +211,10 @@ sub vcl_fetch {
     # fastly-purge-key key scheme is unchanged. An alias URL (/ja/latest)
     # and its real version share one object after the rewrite, so the key
     # carries both names: bc-static-all purges ja/<version> as well as
-    # ja/latest and ja/master.
-    if (req.http.X-Orig-Url ~ "^/capi/en/master/") {
+    # ja/latest and ja/master. Everything derives from the rewritten
+    # req.url; the only header input is X-Docs-Symlink, which recv resets
+    # on the first pass.
+    if (req.url ~ "^/doxygen-latest-html/") {
       set beresp.http.Surrogate-Key = "doxygen-latest-html";
     } else if (req.url ~ "^/(en|ja)/([^/?]+)/") {
       set beresp.http.Surrogate-Key = "docs " re.group.1 " " re.group.2 " " re.group.1 "/" re.group.2;
@@ -242,7 +235,7 @@ sub vcl_fetch {
     # The negotiable pages answer differently by Accept, so downstream
     # caches need Vary (the edge already keys on the rewritten URL plus
     # the normalized Accept).
-    if (req.http.X-Orig-Url ~ "^/ja/" && req.url ~ "\.(html|md)$") {
+    if (req.url ~ "^/ja/" && req.url ~ "\.(html|md)$") {
       set beresp.http.Vary = "Accept";
     }
 
