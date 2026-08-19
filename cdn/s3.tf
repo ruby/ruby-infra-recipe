@@ -108,9 +108,25 @@ resource "aws_s3_bucket" "docs" {
   }
 }
 
+# The legacy buckets predate Block Public Access and their settings are left
+# unmanaged (see README), but a new bucket starts with all four blocks on and
+# rejects PutBucketPolicy until the policy blocks are lifted. ACLs stay
+# blocked; only the bucket policy grants public reads.
+resource "aws_s3_bucket_public_access_block" "docs" {
+  bucket = aws_s3_bucket.docs.bucket
+  region = "us-east-1"
+
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = false
+  restrict_public_buckets = false
+}
+
 resource "aws_s3_bucket_policy" "docs" {
   bucket = aws_s3_bucket.docs.bucket
   region = "us-east-1"
+
+  depends_on = [aws_s3_bucket_public_access_block.docs]
 
   policy = jsonencode({
     Version = "2012-10-17"
