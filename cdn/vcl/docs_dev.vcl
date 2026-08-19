@@ -23,6 +23,19 @@ sub vcl_recv {
     set var.edge_first_pass = true;
   }
 
+  # These headers carry state across restarts and to the shield, so on
+  # the first pass anything already present is a client spoof. A forged
+  # X-Orig-Url would change the Surrogate-Key of the cached object,
+  # leaving it stale and unpurgeable by the real keys.
+  if (var.edge_first_pass) {
+    unset req.http.X-Orig-Url;
+    unset req.http.X-Md-Negotiate;
+    unset req.http.X-Docs-Symlink;
+    unset req.http.X-Docs-Version;
+    unset req.http.X-Redirect-Location;
+    unset req.http.X-Docs-Backend;
+  }
+
   if (req.request == "HEAD" || req.request == "GET") {
 
     # Surrogate-Key and redirects are computed from what the client asked
