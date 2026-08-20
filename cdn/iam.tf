@@ -24,23 +24,25 @@ resource "aws_iam_openid_connect_provider" "github" {
 locals {
   docs_bucket_arn = "arn:aws:s3:::docs.r-l.o"
 
-  # role key => which repository ref may assume it, and which object
+  # role key => which repository refs may assume it, and which object
   # prefixes it may write. "*" means the whole bucket.
   docs_sync_repos = {
     ruby-actions = {
-      sub      = "repo:ruby/actions:ref:refs/heads/master"
+      subs     = ["repo:ruby/actions:ref:refs/heads/master"]
       prefixes = ["en/*", "capi/*"]
     }
     generated-documents = {
-      sub      = "repo:rurema/generated-documents:ref:refs/heads/main"
+      subs     = ["repo:rurema/generated-documents:ref:refs/heads/main"]
       prefixes = ["ja/*"]
     }
     docs-ruby-lang-org = {
-      sub      = "repo:ruby/docs.ruby-lang.org:ref:refs/heads/master"
+      subs     = ["repo:ruby/docs.ruby-lang.org:ref:refs/heads/master"]
       prefixes = ["*"]
     }
     run-ruby-wasm = {
-      sub      = "repo:rurema/run-ruby-wasm:ref:refs/heads/main"
+      # The binaries are cut as GitHub Releases, so a release-triggered sync
+      # workflow presents a tag ref, not the branch.
+      subs     = ["repo:rurema/run-ruby-wasm:ref:refs/heads/main", "repo:rurema/run-ruby-wasm:ref:refs/tags/*"]
       prefixes = ["wasm/*"]
     }
   }
@@ -63,7 +65,11 @@ resource "aws_iam_role" "docs_sync" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = each.value.sub
+          }
+          # StringLike so the tag-ref entries can carry a wildcard; entries
+          # without one still match exactly.
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = each.value.subs
           }
         }
       },
