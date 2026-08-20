@@ -8,9 +8,11 @@
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
-  # A shielded fetch needs a Host that is a domain of this service, so the
-  # bucket endpoint doubles as default_host and as a domain below, the same
-  # arrangement as cache.tf. The other backends override_host instead.
+  # A shielded fetch needs a Host that is a domain of some service, and a
+  # domain can only be attached to one: docs.tf owns the bucket endpoint, so
+  # a shielded fetch from here enters the docs service at the shield POP,
+  # the same arrangement as cache_dev.tf through cache.tf. The other
+  # backends override_host instead.
   default_host       = "docs.r-l.o.s3.amazonaws.com"
   default_ttl        = 60
   http3              = true
@@ -132,11 +134,6 @@ resource "fastly_service_vcl" "docs_dev" {
   # updates these values and everything else follows.
   dictionary {
     name = "docs_versions"
-  }
-
-  domain {
-    comment = "For shielding"
-    name    = "docs.r-l.o.s3.amazonaws.com"
   }
 
   # Reached only through the Fastly-provided domain, same as cache-dev. That

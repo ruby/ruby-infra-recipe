@@ -7,6 +7,11 @@
 # as the fallback for unflagged requests: normally unused, and a one-line VCL
 # change can send any path back to nginx while the origin server still runs.
 resource "fastly_service_vcl" "docs" {
+  # docs_dev held the shielding domain below until this cutover, and Fastly
+  # only allows a domain on one service: docs_dev must release it before this
+  # service claims it within the same apply. Safe to drop after the cutover.
+  depends_on = [fastly_service_vcl.docs_dev]
+
   activate           = true
   stage              = false
   # A shielded fetch needs a Host that is a domain of this service, so the
@@ -121,7 +126,9 @@ resource "fastly_service_vcl" "docs" {
   # A shielded miss runs the logging endpoint at both POPs, so one request
   # becomes two events carrying the same byte count. The edge sets Fastly-FF when
   # it forwards to the shield, so this keeps the edge line, which is the one with
-  # the client POP and the client-facing byte count.
+  # the client POP and the client-facing byte count. docs-dev shields through
+  # this service too, since its default_host is the shielding domain below, so
+  # this drops the docs-dev shield lines as well.
   condition {
     name      = "not-shield-request"
     priority  = 10
