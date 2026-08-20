@@ -281,7 +281,8 @@ sub vcl_fetch {
   if (beresp.http.Expires || beresp.http.Surrogate-Control ~ "max-age" || beresp.http.Cache-Control ~"(s-maxage|max-age)") {
     # keep the ttl here
   } else {
-    # apply the default ttl, which must match default_ttl in docs_dev.tf
+    # apply the default ttl, which must match default_ttl in docs.tf and
+    # docs_dev.tf
     set beresp.ttl = 60s;
   }
 
