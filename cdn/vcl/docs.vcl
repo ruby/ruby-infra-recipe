@@ -1,6 +1,8 @@
 sub vcl_recv {
 
-  # ---- S3 backend routing and rewrites (docs-dev canary) ----
+  # ---- S3 backend routing and rewrites ----
+  # Shared by docs.tf (production) and docs_dev.tf (canary), so the canary
+  # always exercises exactly the VCL that production serves.
   # Runs before #FASTLY recv so the generated backend-selection code
   # (request_condition) can see the X-Docs-Backend flag, same as cache.vcl.
   # Client-visible URLs never change here: everything except the synthetic
@@ -239,6 +241,10 @@ sub vcl_fetch {
       if (req.http.X-Docs-Symlink) {
         set beresp.http.Surrogate-Key = beresp.http.Surrogate-Key " ja/" req.http.X-Docs-Symlink;
       }
+    } else if (req.url ~ "^/wasm/") {
+      # ruby.wasm binaries for the RUN button (rurema/run-ruby-wasm releases,
+      # synced to the wasm/ prefix). Same-origin, so no CORS setup is needed.
+      set beresp.http.Surrogate-Key = "wasm";
     } else {
       set beresp.http.Surrogate-Key = "index";
     }
@@ -275,7 +281,8 @@ sub vcl_fetch {
   if (beresp.http.Expires || beresp.http.Surrogate-Control ~ "max-age" || beresp.http.Cache-Control ~"(s-maxage|max-age)") {
     # keep the ttl here
   } else {
-    # apply the default ttl, which must match default_ttl in docs_dev.tf
+    # apply the default ttl, which must match default_ttl in docs.tf and
+    # docs_dev.tf
     set beresp.ttl = 60s;
   }
 

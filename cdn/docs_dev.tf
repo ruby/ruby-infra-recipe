@@ -1,15 +1,18 @@
-# The S3-backend canary for docs.ruby-lang.org. The production service keeps
-# pointing at docs-origin until this proves out, then docs.tf adopts the same
-# shape. Backend selection goes through request_conditions on a header flag the
-# custom VCL sets before #FASTLY recv (assigning req.backend in VCL would
-# bypass shielding, see cache.tf); the docs-origin backend stays as the
-# fallback for unflagged requests so paths can be moved over one at a time.
+# The S3-backend canary for docs.ruby-lang.org: the same backends and the
+# same VCL file as docs.tf, on a Fastly-provided domain, so a VCL or backend
+# change can be applied and probed here before docs.tf picks it up. Backend
+# selection goes through request_conditions on a header flag the custom VCL
+# sets before #FASTLY recv (assigning req.backend in VCL would bypass
+# shielding, see cache.tf); the docs-origin backend stays as the fallback
+# for unflagged requests so paths could be moved back one at a time.
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
-  # A shielded fetch needs a Host that is a domain of this service, so the
-  # bucket endpoint doubles as default_host and as a domain below, the same
-  # arrangement as cache.tf. The other backends override_host instead.
+  # A shielded fetch needs a Host that is a domain of some service, and a
+  # domain can only be attached to one: docs.tf owns the bucket endpoint, so
+  # a shielded fetch from here enters the docs service at the shield POP,
+  # the same arrangement as cache_dev.tf through cache.tf. The other
+  # backends override_host instead.
   default_host       = "docs.r-l.o.s3.amazonaws.com"
   default_ttl        = 60
   http3              = true
@@ -133,11 +136,6 @@ resource "fastly_service_vcl" "docs_dev" {
     name = "docs_versions"
   }
 
-  domain {
-    comment = "For shielding"
-    name    = "docs.r-l.o.s3.amazonaws.com"
-  }
-
   # Reached only through the Fastly-provided domain, same as cache-dev. That
   # needs neither a ruby-lang.org zone change nor a TLS subscription, since the
   # shared certificate already covers it.
@@ -172,7 +170,7 @@ resource "fastly_service_vcl" "docs_dev" {
   }
 
   vcl {
-    content = file("${path.module}/vcl/docs_dev.vcl")
+    content = file("${path.module}/vcl/docs.vcl")
     main    = true
     name    = "default"
   }
@@ -181,6 +179,7 @@ resource "fastly_service_vcl" "docs_dev" {
 resource "fastly_service_dictionary_items" "docs_dev_versions" {
   service_id    = fastly_service_vcl.docs_dev.id
   dictionary_id = one([for d in fastly_service_vcl.docs_dev.dictionary : d.dictionary_id if d.name == "docs_versions"])
+  manage_items  = false
 
   items = {
     latest = "4.0"
