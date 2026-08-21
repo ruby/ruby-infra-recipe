@@ -26,6 +26,13 @@ sub vcl_recv {
     return(pass);
   }
 
+  // /pub/tmp holds experimental files that are replaced in place, so serving
+  // them from cache returns stale content. Without this, vcl_fetch pins S3
+  // objects for a year based on ETag.
+  if (req.url ~ "^/pub/tmp(/|$)") {
+    return(pass);
+  }
+
   return(lookup);
 }
 
