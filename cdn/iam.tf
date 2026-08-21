@@ -26,6 +26,12 @@ locals {
 
   # role key => which repository refs may assume it, and which object
   # prefixes it may write. "*" means the whole bucket.
+  #
+  # Repositories created (or renamed) after 2026-07-15 present the immutable
+  # sub claim, which embeds the owner and repository ids:
+  # "repo:OWNER@OWNER-ID/REPO@REPO-ID:ref:..." — the ids are shown at the
+  # repository's /settings/actions/oidc-configuration page. Older
+  # repositories keep the classic "repo:OWNER/REPO:ref:..." form.
   docs_sync_repos = {
     ruby-actions = {
       subs     = ["repo:ruby/actions:ref:refs/heads/master"]
@@ -41,8 +47,13 @@ locals {
     }
     run-ruby-wasm = {
       # The binaries are cut as GitHub Releases, so a release-triggered sync
-      # workflow presents a tag ref, not the branch.
-      subs     = ["repo:rurema/run-ruby-wasm:ref:refs/heads/main", "repo:rurema/run-ruby-wasm:ref:refs/tags/*"]
+      # workflow presents a tag ref, not the branch. Created 2026-08-16, so
+      # the sub is the immutable form (rurema = 4122513,
+      # run-ruby-wasm = 1335558093).
+      subs = [
+        "repo:rurema@4122513/run-ruby-wasm@1335558093:ref:refs/heads/main",
+        "repo:rurema@4122513/run-ruby-wasm@1335558093:ref:refs/tags/*",
+      ]
       prefixes = ["wasm/*"]
     }
   }
