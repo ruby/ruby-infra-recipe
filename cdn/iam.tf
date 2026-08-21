@@ -53,6 +53,12 @@ resource "aws_iam_role" "docs_sync" {
 
   name = "docs-sync-${each.key}"
 
+  # A full re-upload of html/ja (site-wide regeneration days) runs longer
+  # than the default 1-hour session and dies with ExpiredToken mid-sync.
+  # Allow the workflows to request up to 6 hours (the GitHub-hosted job
+  # limit); normal incremental runs still use a short session.
+  max_session_duration = 21600
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
