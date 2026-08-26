@@ -36,6 +36,16 @@ sub vcl_recv {
     unset req.http.X-Docs-Backend;
   }
 
+  # doc.ruby-lang.org is a legacy hostname whose nginx vhost is nothing but
+  # a blanket return 301 to docs.ruby-lang.org; answering it at the edge
+  # unhooks the hostname from the origin server ahead of its retirement.
+  # Above the GET/HEAD gate: the nginx server block redirects every method.
+  # req.url still carries the query string here, nginx's $request_uri.
+  if (var.edge_first_pass && req.http.host ~ "(?i)^doc\.ruby-lang\.org$") {
+    set req.http.X-Redirect-Location = "https://docs.ruby-lang.org" req.url;
+    error 601;
+  }
+
   # The md fallback restart must run at the edge only, but vcl_fetch cannot
   # use Fastly-FF to tell the edge from the shield: the clustering hop
   # between the delivery and fetch node inside a POP also sets it, so it is

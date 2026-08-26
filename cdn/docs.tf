@@ -144,6 +144,11 @@ resource "fastly_service_vcl" "docs" {
   }
 
   domain {
+    comment = "Legacy hostname; the VCL answers it with a redirect to docs"
+    name    = "doc.ruby-lang.org"
+  }
+
+  domain {
     name = "docs.ruby-lang.org"
   }
 
