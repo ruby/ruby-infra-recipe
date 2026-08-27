@@ -3,8 +3,8 @@
 # change can be applied and probed here before docs.tf picks it up. Backend
 # selection goes through request_conditions on a header flag the custom VCL
 # sets before #FASTLY recv (assigning req.backend in VCL would bypass
-# shielding, see cache.tf); the docs-origin backend stays as the fallback
-# for unflagged requests so paths could be moved back one at a time.
+# shielding, see cache.tf); every request the VCL lets through is flagged
+# to one of the S3 backends, and non-GET/HEAD methods get a synthetic 405.
 resource "fastly_service_vcl" "docs_dev" {
   activate           = true
   stage              = false
@@ -19,29 +19,6 @@ resource "fastly_service_vcl" "docs_dev" {
   name               = "docs-dev.ruby-lang.org"
   stale_if_error     = true
   stale_if_error_ttl = 43200
-
-  backend {
-    address               = "docs-origin.ruby-lang.org"
-    auto_loadbalance      = false
-    between_bytes_timeout = 10000
-    connect_timeout       = 1000
-    error_threshold       = 0
-    first_byte_timeout    = 15000
-    keepalive_time        = 0
-    max_conn              = 200
-    max_lifetime          = 0
-    max_use               = 0
-    name                  = "docs origin server"
-    override_host         = "docs.ruby-lang.org"
-    port                  = 443
-    prefer_ipv6           = false
-    request_condition     = "backend-is-origin"
-    shield                = "tyo-tokyo-jp"
-    ssl_cert_hostname     = "docs-origin.ruby-lang.org"
-    ssl_check_cert        = true
-    use_ssl               = true
-    weight                = 100
-  }
 
   # The docs bucket (aws_s3_bucket.docs in s3.tf): public/ root files, en and
   # ja. us-east-1, so shielded near it like the cache service's S3 backend.
@@ -95,13 +72,6 @@ resource "fastly_service_vcl" "docs_dev" {
     ssl_check_cert        = true
     use_ssl               = true
     weight                = 100
-  }
-
-  condition {
-    name      = "backend-is-origin"
-    priority  = 10
-    statement = "!req.http.X-Docs-Backend"
-    type      = "REQUEST"
   }
 
   condition {
