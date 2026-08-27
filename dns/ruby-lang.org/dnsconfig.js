@@ -4,8 +4,6 @@ var REG_NONE = NewRegistrar("none");
 D("ruby-lang.org", REG_NONE,
 	DnsProvider(DSP_CLOUDFLARE),
 	DefaultTTL(1),
-	A("docs-2020", "18.178.72.192"),
-	A("docs-origin", "18.178.72.192"),
 	A("gem-codesearch.dev", "18.180.198.97"),
 	A("git", "52.192.80.219"),
 	A("mame.dev", "18.180.198.97"),
