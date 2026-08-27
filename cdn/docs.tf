@@ -3,9 +3,9 @@
 # VCL file (vcl/docs.vcl), so the canary keeps exercising exactly what
 # production serves. Backend selection goes through request_conditions on a
 # header flag the custom VCL sets before #FASTLY recv (assigning req.backend
-# in VCL would bypass shielding, see cache.tf). The docs-origin backend stays
-# as the fallback for unflagged requests: normally unused, and a one-line VCL
-# change can send any path back to nginx while the origin server still runs.
+# in VCL would bypass shielding, see cache.tf). Every request the VCL lets
+# through is flagged to one of the S3 backends; non-GET/HEAD methods get a
+# synthetic 405 at the edge (the origin server is retired).
 resource "fastly_service_vcl" "docs" {
   # docs_dev held the shielding domain below until this cutover, and Fastly
   # only allows a domain on one service: docs_dev must release it before this
@@ -23,29 +23,6 @@ resource "fastly_service_vcl" "docs" {
   name               = "docs.ruby-lang.org"
   stale_if_error     = true
   stale_if_error_ttl = 43200
-
-  backend {
-    address               = "docs-origin.ruby-lang.org"
-    auto_loadbalance      = false
-    between_bytes_timeout = 10000
-    connect_timeout       = 1000
-    error_threshold       = 0
-    first_byte_timeout    = 15000
-    keepalive_time        = 0
-    max_conn              = 200
-    max_lifetime          = 0
-    max_use               = 0
-    name                  = "docs origin server"
-    override_host         = "docs.ruby-lang.org"
-    port                  = 443
-    prefer_ipv6           = false
-    request_condition     = "backend-is-origin"
-    shield                = "tyo-tokyo-jp"
-    ssl_cert_hostname     = "docs-origin.ruby-lang.org"
-    ssl_check_cert        = true
-    use_ssl               = true
-    weight                = 100
-  }
 
   # The docs bucket: public/ root files, en, ja, and wasm (ruby.wasm binaries
   # for the RUN button). us-east-1, so shielded near it like the cache
@@ -100,13 +77,6 @@ resource "fastly_service_vcl" "docs" {
     ssl_check_cert        = true
     use_ssl               = true
     weight                = 100
-  }
-
-  condition {
-    name      = "backend-is-origin"
-    priority  = 10
-    statement = "!req.http.X-Docs-Backend"
-    type      = "REQUEST"
   }
 
   condition {

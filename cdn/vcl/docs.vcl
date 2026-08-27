@@ -170,16 +170,18 @@ sub vcl_recv {
       set req.http.X-Docs-Backend = "doxygen";
       set req.url = regsub(req.url, "^/capi/en/master/", "/doxygen-latest-html/");
     } else {
-      # Narrow this per prefix to move paths over one at a time; anything
-      # unflagged still goes to docs-origin.
+      # Everything else (root files, en, ja, wasm) lives in the docs bucket.
       set req.http.X-Docs-Backend = "s3";
     }
   }
 
 #FASTLY recv
 
+  # Nothing here serves writes, and the origin server these used to pass
+  # to is retired; answer other methods at the edge. The doc.ruby-lang.org
+  # redirect above still covers every method, like its nginx vhost did.
   if (req.request != "HEAD" && req.request != "GET" && req.request != "FASTLYPURGE") {
-    return(pass);
+    error 605;
   }
 
   return(lookup);
@@ -336,6 +338,17 @@ sub vcl_error {
     }
     set obj.http.Location = req.http.X-Redirect-Location;
     synthetic "";
+    return(deliver);
+  }
+
+  # Non-GET/HEAD requests (bot POSTs, in practice), no longer passed to
+  # the retired origin server.
+  if (obj.status == 605) {
+    set obj.status = 405;
+    set obj.response = "Method Not Allowed";
+    set obj.http.Allow = "GET, HEAD";
+    set obj.http.Content-Type = "text/html; charset=utf-8";
+    synthetic {"<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Method not allowed.</h1></body></html>"};
     return(deliver);
   }
 
