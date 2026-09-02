@@ -24,13 +24,147 @@ No `~/.ssh/config` entry is needed. After bootstrap, `bin/hocho apply` connects 
 Supported platforms: Fedora, RHEL, CentOS, Amazon Linux, Debian, Ubuntu, openSUSE, Arch and FreeBSD. Use the manual steps below for the others.
 
 ### OpenBSD
-(to be automated using hocho)
 
-```bash
-doas pkg_add rsync
-doas pkg_add bash
-doas pkg_add sudo # then add NOPASSWD to /etc/sudoers
+RubyCI for OpenBSD is done by Running OpenBSD in a qemu VM inside a Ubuntu VM.
+This describes the setup process.
+
+Once logged into the Ubuntu VM, install packages, create the disk image for the
+OpenBSD VM, and download the OpenBSD ISO (this uses 7.9, but the latest available
+version should be used):
+
+```sh
+sudo apt update
+sudo apt install -y qemu-system-x86 qemu-utils cpu-checker
+
+sudo mkdir -p /var/lib/vms
+sudo qemu-img create -f qcow2 /var/lib/vms/openbsd.qcow2 30G
+
+curl -o install79.iso https://cdn.openbsd.org/pub/OpenBSD/7.9/amd64/install79.iso
 ```
+
+Next we'll install OpenBSD inside qemu. When the following command runs,
+start typing `set tty com0` at the `boot>` prompt (you have about 5 seconds to
+start typing). After submitting that, at the next `boot>` prompt, type `boot`
+to start the OpenBSD installer boot.
+
+```sh
+sudo qemu-system-x86_64 \
+  -m 3072 \
+  -smp 2 \
+  -drive file=/var/lib/vms/openbsd.qcow2,if=virtio,format=qcow2 \
+  -cdrom install79.iso \
+  -boot d \
+  -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+  -nographic
+```
+
+Important information during OpenBSD installation. If an answer
+isn't listed here, use the default:
+
+* System hostname: `rubyci-openbsd`
+* Password: randomly generate a secure one and store it
+* Do you expect to run the X Window System? `no`
+* Which speed should com0 use? `115200`
+* Setup a user? Enter a username for yourself, then a different secure password
+* Disk setup: `c` for custom, then follow these prompts for 1G swap and rest a
+  single partition:
+  ```
+  sd0> a b
+  offset: [64]
+  size: [62914496] 1g
+  FS type: [swap]
+  sd0*> a a
+  offset: [2104515]
+  size: [60810045]
+  FS type: [4.2BSD]
+  mount point: [none] /
+  sd0*> q
+  Write new label?: [y]
+  ```
+* Location of sets? `cd0`
+* Directory does not contain SHA256.sig. Continue without verification? `yes`
+* Exit to (S)hell, (H)alt or (R)eboot? `h`
+
+Then do `Ctrl+A`, then `X` to have qemu exit.
+
+Setup a script to start the OpenBSD VM, forwaring port 2222 on the Ubuntu VM
+to port 22 on the OpenBSD:
+
+```sh
+sudo tee /usr/local/bin/openbsd-vm.sh >/dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+exec qemu-system-x86_64 \
+  -m 3072 \
+  -smp 2 \
+  -drive file=/var/lib/vms/openbsd.qcow2,if=virtio,format=qcow2 \
+  -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+  -device virtio-net-pci,netdev=net0 \
+  -nographic
+EOF
+sudo chmod +x /usr/local/bin/openbsd-vm.sh
+```
+
+Setup systemd to start the OpenBSD VM and autostart it on Ubuntu boot:
+
+```sh
+sudo tee /etc/systemd/system/openbsd-vm.service >/dev/null <<'EOF'
+[Unit]
+Description=OpenBSD QEMU VM
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/openbsd-vm.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now openbsd-vm.service
+```
+
+Run `systemctl status openbsd-vm` to ensure it is running, and 
+`journalctl -u openbsd-vm | tail` to see the boot information from qemu.
+It should include something like
+`OpenBSD/amd64 (rubyci-openbsd.my.domain) (tty00)` near the end.
+
+Try connecting via `ssh -P 2222 openbsd.rubyci.org`. It should
+forward to the OpenBSD VM. Use the password you set during setup
+for the initial SSH connection. Then copy over your SSH public
+keys to `.ssh/authorized_keys` so you can connect via public
+keys.
+
+The user you created during setup will be in the `wheel` group,
+but `sudo` isn't installed at this point, and `doas` (OpenBSD's
+`sudo`-like) isn't enabled. Run `su` and use your password (not
+the root password), which will open a root shell. Enable `doas`:
+
+```sh
+echo permit nopass keepenv :wheel > /etc/doas
+```
+
+Then exit the root shell. 
+
+Install the necessary packages needed for CI:
+
+```sh
+doas pkg_add rsync-- bash sudo-- git
+```
+
+Then configure `sudo`
+
+```sh
+doas vi /etc/sudoers
+```
+
+Uncomment the `# %wheel        ALL=(ALL) NOPASSWD: SETENV: ALL` line.
+
+From this point on, you can use `sudo` or `doas`, either will work.
 
 ### Funtoo
 
