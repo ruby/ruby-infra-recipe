@@ -28,13 +28,21 @@ Supported platforms: Fedora, RHEL, CentOS, Amazon Linux, Debian, Ubuntu, openSUS
 RubyCI for OpenBSD is done by Running OpenBSD in a qemu VM inside a Ubuntu VM.
 This describes the setup process.
 
-Once logged into the Ubuntu VM, install packages, create the disk image for the
-OpenBSD VM, and download the OpenBSD ISO (this uses 7.9, but the latest available
-version should be used):
+Once logged into the Ubuntu VM, install packages, setup swap (to reduce the odds
+of the OOM killer killing the VM), create the disk image for the OpenBSD VM, and
+download the OpenBSD ISO (this uses 7.9, but the latest available version should
+be used):
 
 ```sh
 sudo apt update
 sudo apt install -y qemu-system-x86 qemu-utils cpu-checker
+
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+sudo swapon --show
 
 sudo mkdir -p /var/lib/vms
 sudo qemu-img create -f qcow2 /var/lib/vms/openbsd.qcow2 30G
