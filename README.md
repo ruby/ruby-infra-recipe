@@ -49,7 +49,7 @@ to start the OpenBSD installer boot.
 
 ```sh
 sudo qemu-system-x86_64 \
-  -m 3072 \
+  -m 2560 \
   -smp 2 \
   -drive file=/var/lib/vms/openbsd.qcow2,if=virtio,format=qcow2 \
   -cdrom install79.iso \
@@ -85,9 +85,16 @@ isn't listed here, use the default:
 * Directory does not contain SHA256.sig. Continue without verification? `yes`
 * Exit to (S)hell, (H)alt or (R)eboot? `h`
 
+After you see:
+
+```
+The operating system has halted.
+Please press any key to reboot.
+```
+
 Then do `Ctrl+A`, then `X` to have qemu exit.
 
-Setup a script to start the OpenBSD VM, forwaring port 2222 on the Ubuntu VM
+Setup a script to start the OpenBSD VM, forwarding port 2222 on the Ubuntu VM
 to port 22 on the OpenBSD:
 
 ```sh
@@ -96,7 +103,7 @@ sudo tee /usr/local/bin/openbsd-vm.sh >/dev/null <<'EOF'
 set -euo pipefail
 
 exec qemu-system-x86_64 \
-  -m 3072 \
+  -m 2560 \
   -smp 2 \
   -drive file=/var/lib/vms/openbsd.qcow2,if=virtio,format=qcow2 \
   -netdev user,id=net0,hostfwd=tcp::2222-:22 \
@@ -128,12 +135,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now openbsd-vm.service
 ```
 
-Run `systemctl status openbsd-vm` to ensure it is running, and 
-`journalctl -u openbsd-vm | tail` to see the boot information from qemu.
+Run `sudo systemctl status openbsd-vm` to ensure it is running, and 
+`sudo journalctl -u openbsd-vm | tail` to see the boot information from qemu.
 It should include something like
-`OpenBSD/amd64 (rubyci-openbsd.my.domain) (tty00)` near the end.
+`OpenBSD/amd64 (rubyci-openbsd.my.domain) (tty00)` near the end once it
+finishes booting.
 
-Try connecting via `ssh -P 2222 openbsd.rubyci.org`. It should
+Try connecting via `ssh -p 2222 openbsd.rubyci.org`. It should
 forward to the OpenBSD VM. Use the password you set during setup
 for the initial SSH connection. Then copy over your SSH public
 keys to `.ssh/authorized_keys` so you can connect via public
@@ -145,7 +153,7 @@ but `sudo` isn't installed at this point, and `doas` (OpenBSD's
 the root password), which will open a root shell. Enable `doas`:
 
 ```sh
-echo permit nopass keepenv :wheel > /etc/doas
+echo permit nopass keepenv :wheel > /etc/doas.conf
 ```
 
 Then exit the root shell. 
@@ -165,6 +173,48 @@ doas vi /etc/sudoers
 Uncomment the `# %wheel        ALL=(ALL) NOPASSWD: SETENV: ALL` line.
 
 From this point on, you can use `sudo` or `doas`, either will work.
+
+To allow `hocho` to work, add the following configuration to
+`~/.ssh/config`, so that `hocho` will connect to the OpenBSD VM and
+not the Ubuntu VM:
+
+```
+Host openbsd.rubyci.org
+HostName openbsd.rubyci.org
+Port 2222
+```
+
+If the OpenBSD VM is not responsive, run `sudo systemctl status openbsd-vm`
+to stop the VM. Then connect manually using serial console:
+
+```sh
+sudo qemu-system-x86_64 \
+  -m 2560 \
+  -smp 2 \
+  -drive file=/var/lib/vms/openbsd.qcow2,if=virtio,format=qcow2 \
+  -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+  -nographic
+```
+
+Let it boot normally. If it won't boot, and you get something like:
+
+```
+/dev/sd0a (f1765eb029d7742d.a): UNEXPECTED INCONSISTENCY; RUN fsck_ffs MANUALLY.
+Automatic file system check failed; help!
+fd0 at fdc0 drive 1: density unknown
+Enter pathname of shell or RETURN for sh: 
+```
+
+Then hit `Enter`, and then `fsck -y`. Hopefully that will fix the issue
+and at the end of the output you will see:
+
+```
+***** FILE SYSTEM WAS MODIFIED *****
+```
+
+If so, type `exit` or `Ctrl+D`, and the system should continue booting.
+If it cannot complete booting, rebuild it from scratch using the instructions
+in this section.
 
 ### Funtoo
 
