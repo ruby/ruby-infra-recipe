@@ -16,6 +16,20 @@ bin/launch --eip 52.69.117.212 fedora45.rubyci.org ami-0123456789abcdef0 c5a.lar
 
 `--eip new` allocates a new Elastic IP and `--eip <address|allocation id>` takes an existing unassociated one. Either way a `*.rubyci.org` host gets its A record written into `dns/rubyci.org/dnsconfig.js`, and committing that is what applies the zone. Without `--eip` the instance keeps the address its subnet assigns, which is lost on the next stop. The Name tag is `rubyci-<label>`; pass `--name` where that does not hold, as with `riscv.rubyci.org` running on `rubyci-riscv64`.
 
+### Elastic IP swap
+
+Rotating an EOL host out reuses its Elastic IP, which leaves the DNS record alone. Launch the replacement with `bin/launch` and no `--eip`, bootstrap and apply it on the temporary address its subnet assigns, and hand it the host name with `bin/eip-swap` only once it works. The old instance keeps running and loses its public address, so stop or terminate it after the replacement is known good.
+
+```bash
+# report which instance holds the address today, and dry-run the API call
+bin/eip-swap -n debian11.rubyci.org i-0123456789abcdef0
+
+# swap
+bin/eip-swap debian11.rubyci.org i-0123456789abcdef0
+```
+
+The replacement answers on a different host key under the same name, so `ssh-keygen -R <host>` is needed before the next `bin/hocho apply`. Both are printed as next steps.
+
 ### Prepare environment for hocho apply
 
 After the instance exists and its DNS record is live (`bin/launch` does both for EC2 hosts; records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:

@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Move a host's Elastic IP to a replacement instance, so an EOL host can be
+# rotated out without touching DNS.
+#
+# Usage: bin/eip-swap [-n] <host> <instance-id>
+#   -n  resolve both ends and dry-run the API call, do not reassociate
+#
+# The replacement is launched with `bin/launch` and no --eip, then bootstrapped
+# and applied on the temporary address its subnet assigns; this hands it the
+# host name afterwards. The A record under dns/rubyci.org/ never changes, so
+# nothing has to be committed and no zone push is involved.
+#
+# The old instance is left running but loses its public address entirely, so
+# stop or terminate it once the replacement is known good.
+#
+# The AWS CLI is expected to be configured with credentials for the account
+# holding the instances.
+
+require 'open3'
+require 'optparse'
+require 'resolv'
+
+REGION = 'ap-northeast-1'
+
+dry_run = false
+opt = OptionParser.new
+opt.banner = 'usage: bin/eip-swap [-n] <host> <instance-id>'
+opt.on('-n', 'dry-run the API call') { dry_run = true }
+args = opt.parse(ARGV)
+abort opt.banner unless args.size == 2
+host, instance = args
+
+def aws(*command)
+  out, err, status = Open3.capture3('aws', '--region', REGION, *command)
+  abort "aws #{command.first(2).join(' ')} failed: #{err.strip}" unless status.success?
+  out
+end
+
+# hosts.yml carries no instance id and the Name tag does not always follow the
+# host name, so reach the allocation through the address the host resolves to.
+address = begin
+  Resolv.getaddress(host)
+rescue Resolv::ResolvError => e
+  abort "cannot resolve #{host}: #{e.message}"
+end
+
+rows = aws('ec2', 'describe-addresses', '--filters', "Name=public-ip,Values=#{address}",
+           '--query', 'Addresses[].[AllocationId,InstanceId]', '--output', 'text').lines
+abort "#{address} (#{host}) is not an Elastic IP in this account" if rows.empty?
+allocation, current = rows.first.split
+
+if current == instance
+  puts "eip-swap: host=#{host} eip=#{address} instance=#{instance} status=unchanged"
+  exit
+end
+
+state, name = aws('ec2', 'describe-instances', '--instance-ids', instance,
+                  '--query', 'Reservations[0].Instances[0].[State.Name,Tags[?Key==`Name`].Value|[0]]',
+                  '--output', 'text').strip.split("\t", 2)
+abort "#{instance} is #{state}, not running" unless state == 'running'
+
+puts "eip-swap: host=#{host} eip=#{address} from=#{current} to=#{instance} (#{name})"
+
+associate = ['ec2', 'associate-address', '--allocation-id', allocation,
+             '--instance-id', instance, '--allow-reassociation']
+
+if dry_run
+  # A dry run always fails; DryRunOperation is what success looks like.
+  _out, err, = Open3.capture3('aws', '--region', REGION, *associate, '--dry-run')
+  abort "dry run failed: #{err.strip}" unless err.include?('DryRunOperation')
+  puts 'eip-swap: status=dry-run'
+  exit
+end
+
+aws(*associate)
+puts 'eip-swap: status=swapped'
+puts <<~NEXT
+  Next steps:
+    ssh-keygen -R #{host}
+    bin/hocho apply #{host}
+    stop or terminate #{current} once #{host} is known good
+NEXT
