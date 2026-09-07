@@ -1,0 +1,90 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Register a chkbuild host with rubyci.org, the one step of adding a host that
+# lives outside this repository.
+#
+# Usage: bin/rubyci-server [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>
+#   -n           print the request and exit, do not post
+#   --app APP    Heroku app to register with (default: rubyci)
+#   --ordinal N  display order (default: after the last server)
+#   --eol DATE   end of life, YYYY-MM-DD
+#
+# <nickname> is what the host's crontab sets RUBYCI_NICKNAME to and the S3
+# prefix its logs land under; the uri is derived from it. rubyci.org does not
+# discover servers from the bucket, so a host stays invisible until this row
+# exists. The ordinal is a float and the page is sorted by it, so a value
+# between two neighbours drops the new host next to its family, while the
+# default appends it to the bottom to be moved up from the servers page.
+#
+# The `root` basic-auth password is read from the app's own ROOT_PASSWORD config
+# var instead of being copied into a second place, so posting needs an
+# authenticated heroku CLI:
+#
+#   op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server ...
+#
+# Rehearse against the staging app with --app staging-rubyci. A dry run reads
+# nothing but the public server list and needs no credentials at all.
+
+require 'json'
+require 'net/http'
+require 'open3'
+require 'optparse'
+
+LOG_BUCKET_URL = 'https://rubyci.s3.amazonaws.com'
+
+options = { app: 'rubyci' }
+opt = OptionParser.new
+opt.banner = 'usage: bin/rubyci-server [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>'
+opt.on('-n', 'print the request and exit') { options[:dry_run] = true }
+opt.on('--app APP', 'Heroku app to register with') { |v| options[:app] = v }
+opt.on('--ordinal N', Float, 'display order') { |v| options[:ordinal] = v }
+opt.on('--eol DATE', 'end of life, YYYY-MM-DD') { |v| options[:eol] = v }
+args = opt.parse(ARGV)
+abort opt.banner unless args.size == 2
+name, nickname = args
+
+# Only the production app has a custom domain.
+base = URI.parse(options[:app] == 'rubyci' ? 'https://rubyci.org' : "https://#{options[:app]}.herokuapp.com")
+
+servers = JSON.parse(Net::HTTP.get(URI.join(base, '/servers.json')))
+abort "#{nickname} is already registered on #{options[:app]}" if
+  servers.any? { |server| server['uri'].to_s.include?("/#{nickname}") }
+
+server = {
+  name: name,
+  uri: "#{LOG_BUCKET_URL}/#{nickname}/",
+  # Going past the last one leaves the ordinal of every existing row alone.
+  ordinal: options[:ordinal] || servers.map { |s| s['ordinal'].to_f }.max + 1,
+}
+server[:eol_date] = options[:eol] if options[:eol]
+
+puts "rubyci-server: app=#{options[:app]} #{server.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+if options[:dry_run]
+  puts 'rubyci-server: status=dry-run'
+  exit
+end
+
+out, err, status = Open3.capture3('heroku', 'config:get', 'ROOT_PASSWORD', '-a', options[:app])
+unless status.success?
+  abort "cannot read ROOT_PASSWORD from #{options[:app]}, " \
+        "run under `op run --env-file ~/.config/credentials/heroku.env`: #{err.strip}"
+end
+password = out.strip
+abort "ROOT_PASSWORD is not set on #{options[:app]}" if password.empty?
+
+endpoint = URI.join(base, '/servers.json')
+request = Net::HTTP::Post.new(endpoint, 'Content-Type' => 'application/json')
+request.basic_auth('root', password)
+request.body = JSON.dump(server: server)
+response = Net::HTTP.start(endpoint.host, endpoint.port, use_ssl: endpoint.scheme == 'https') do |http|
+  http.request(request)
+end
+
+case response
+when Net::HTTPCreated
+  puts "rubyci-server: id=#{JSON.parse(response.body)['id']} status=created"
+when Net::HTTPUnauthorized
+  abort "rubyci-server: #{options[:app]} rejected the root password"
+else
+  abort "rubyci-server: #{response.code} #{response.message}: #{response.body.to_s[0, 500]}"
+end
