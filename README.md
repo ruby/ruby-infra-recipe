@@ -2,9 +2,23 @@
 
 ## Usage
 
+### Launch
+
+`bin/launch` creates a host's EC2 instance through the EC2 API, so a new host needs no web console. The security group (`chkbuild`), instance profile (`chkbuild-uploader`), IMDSv2 requirement and gp3 root volume are the same for every host and are fixed in the script, which leaves the AMI id and the instance type as arguments. The subnet defaults to a default-for-az subnet of the security group's VPC, choosing an availability zone that offers the requested instance type, because the zones do not all offer the same ones. As with `bin/reboot` the region is fixed to `ap-northeast-1` and the AWS CLI is expected to be configured with credentials for the account holding the instances.
+
+```bash
+# resolve the AMI, subnet and Name tag, then dry-run the API call
+bin/launch -n fedora45.rubyci.org ami-0123456789abcdef0 c5a.large
+
+# launch, taking one of the idle Elastic IPs
+bin/launch --eip 52.69.117.212 fedora45.rubyci.org ami-0123456789abcdef0 c5a.large
+```
+
+`--eip new` allocates a new Elastic IP and `--eip <address|allocation id>` takes an existing unassociated one. Either way a `*.rubyci.org` host gets its A record written into `dns/rubyci.org/dnsconfig.js`, and committing that is what applies the zone. Without `--eip` the instance keeps the address its subnet assigns, which is lost on the next stop. The Name tag is `rubyci-<label>`; pass `--name` where that does not hold, as with `riscv.rubyci.org` running on `rubyci-riscv64`.
+
 ### Prepare environment for hocho apply
 
-After launching a VM and assigning the Elastic IP (DNS records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:
+After the instance exists and its DNS record is live (`bin/launch` does both for EC2 hosts; records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:
 
 ```bash
 bin/bootstrap -i ~/.ssh/aws-keypair.pem fedora@fedora44-arm.rubyci.org

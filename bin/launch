@@ -1,0 +1,166 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Launch an EC2 instance for a new host through the EC2 API, so that a host can
+# be built without the web console.
+#
+# Usage: bin/launch [options] <host> <ami-id> <instance-type>
+#   -n              resolve everything and dry-run the API call, do not launch
+#   --key NAME      keypair injected at launch (default: $USER)
+#   --name TAG      Name tag (default: rubyci-<label> for a *.rubyci.org host)
+#   --subnet ID     subnet to launch in (default: see below)
+#   --size GB       root volume size (default: 40)
+#   --eip new|ADDR  allocate a new Elastic IP, or take an existing unassociated
+#                   one by address or allocation id
+#
+# The security group, instance profile, IMDS options and root volume type are
+# the same for every host here and are not configurable. The subnet defaults to
+# a default-for-az subnet of the security group's VPC, picking an availability
+# zone that offers the requested instance type.
+#
+# Without --eip the instance keeps the address its subnet assigns, which is lost
+# on the next stop; a permanent host wants --eip. With --eip on a *.rubyci.org
+# host the A record is written into dns/rubyci.org/dnsconfig.js, and committing
+# it is what applies it.
+#
+# The AWS CLI is expected to be configured with credentials for the account
+# holding the instances.
+
+require 'open3'
+require 'optparse'
+
+REGION = 'ap-northeast-1'
+SECURITY_GROUP = 'chkbuild'
+INSTANCE_PROFILE = 'chkbuild-uploader'
+DNS_CONFIG = 'dns/rubyci.org/dnsconfig.js'
+
+options = { key: ENV['USER'], size: 40 }
+opt = OptionParser.new
+opt.banner = 'usage: bin/launch [options] <host> <ami-id> <instance-type>'
+opt.on('-n', 'dry-run the API call') { options[:dry_run] = true }
+opt.on('--key NAME', 'keypair name') { |v| options[:key] = v }
+opt.on('--name TAG', 'Name tag') { |v| options[:name] = v }
+opt.on('--subnet ID', 'subnet id') { |v| options[:subnet] = v }
+opt.on('--size GB', Integer, 'root volume size in GB') { |v| options[:size] = v }
+opt.on('--eip ADDR', 'new, or an existing address / allocation id') { |v| options[:eip] = v }
+args = opt.parse(ARGV)
+abort opt.banner unless args.size == 3
+host, ami, type = args
+abort 'no keypair name: pass --key' if options[:key].to_s.empty?
+
+Dir.chdir(File.expand_path('..', __dir__))
+
+def aws(*command)
+  out, err, status = Open3.capture3('aws', '--region', REGION, *command)
+  abort "aws #{command.first(2).join(' ')} failed: #{err.strip}" unless status.success?
+  out
+end
+
+label = host.split('.').first
+# The Name tag follows the host name, but not always: riscv.rubyci.org runs on
+# `rubyci-riscv64`. --name covers a host whose tag cannot be derived.
+name = options[:name] || (host.end_with?('.rubyci.org') ? "rubyci-#{label}" : label)
+
+# Debian and FreeBSD images root on /dev/sda1 and the rest on /dev/xvda, so the
+# block device mapping that resizes the root volume has to follow the AMI.
+root_device, ami_name = aws('ec2', 'describe-images', '--image-ids', ami,
+                            '--query', 'Images[0].[RootDeviceName,Name]', '--output', 'text').split
+
+group_id, vpc = aws('ec2', 'describe-security-groups',
+                    '--filters', "Name=group-name,Values=#{SECURITY_GROUP}",
+                    '--query', 'SecurityGroups[0].[GroupId,VpcId]', '--output', 'text').split
+# The group exists in the account that holds the instances and nowhere else, so
+# a miss here means the AWS CLI is pointed at the wrong one.
+abort "no security group named #{SECURITY_GROUP}: wrong AWS account?" if vpc.nil?
+
+subnet = options[:subnet] || begin
+  # The default subnets of the VPC differ in which instance types they offer, so
+  # narrow them to the zones that have this one before picking.
+  zones = aws('ec2', 'describe-instance-type-offerings',
+              '--location-type', 'availability-zone',
+              '--filters', "Name=instance-type,Values=#{type}",
+              '--query', 'InstanceTypeOfferings[].Location', '--output', 'text').split
+  abort "#{type} is not offered in #{REGION}" if zones.empty?
+  subnets = aws('ec2', 'describe-subnets',
+                '--filters', "Name=vpc-id,Values=#{vpc}",
+                'Name=default-for-az,Values=true',
+                "Name=availability-zone,Values=#{zones.join(',')}",
+                '--query', 'Subnets[].[AvailabilityZone,SubnetId]', '--output', 'text')
+             .lines.map(&:split).sort
+  abort "no default subnet in #{vpc} offers #{type}" if subnets.empty?
+  subnets.first.last
+end
+
+run_instances = [
+  'ec2', 'run-instances',
+  '--image-id', ami,
+  '--instance-type', type,
+  '--key-name', options[:key],
+  '--subnet-id', subnet,
+  '--security-group-ids', group_id,
+  '--iam-instance-profile', "Name=#{INSTANCE_PROFILE}",
+  # A hop limit of 1 keeps the instance profile credentials from being read
+  # through the extra network hop a container on the host would add.
+  '--metadata-options', 'HttpTokens=required,HttpPutResponseHopLimit=1',
+  '--block-device-mappings',
+  "DeviceName=#{root_device},Ebs={VolumeSize=#{options[:size]},VolumeType=gp3,DeleteOnTermination=true}",
+  '--tag-specifications', "ResourceType=instance,Tags=[{Key=Name,Value=#{name}}]",
+]
+
+puts "launch: host=#{host} name=#{name} ami=#{ami} (#{ami_name}) type=#{type} " \
+     "subnet=#{subnet} key=#{options[:key]} root=#{options[:size]}GB"
+
+if options[:dry_run]
+  # A dry run always fails; DryRunOperation is what success looks like.
+  _out, err, = Open3.capture3('aws', '--region', REGION, *run_instances, '--dry-run')
+  abort "dry run failed: #{err.strip}" unless err.include?('DryRunOperation')
+  puts 'launch: status=dry-run'
+  exit
+end
+
+instance = aws(*run_instances, '--query', 'Instances[0].InstanceId', '--output', 'text').strip
+puts "launch: instance=#{instance} status=pending"
+aws('ec2', 'wait', 'instance-running', '--instance-ids', instance)
+
+if options[:eip]
+  allocation, address =
+    if options[:eip] == 'new'
+      aws('ec2', 'allocate-address', '--domain', 'vpc',
+          '--tag-specifications', "ResourceType=elastic-ip,Tags=[{Key=Name,Value=#{name}}]",
+          '--query', '[AllocationId,PublicIp]', '--output', 'text').split
+    else
+      filter = options[:eip].start_with?('eipalloc-') ? 'allocation-id' : 'public-ip'
+      rows = aws('ec2', 'describe-addresses', '--filters', "Name=#{filter},Values=#{options[:eip]}",
+                 '--query', 'Addresses[].[AllocationId,PublicIp,AssociationId]', '--output', 'text').lines
+      abort "no such Elastic IP: #{options[:eip]}" if rows.empty?
+      alloc, ip, association = rows.first.split
+      abort "#{ip} is already associated (#{association})" unless association == 'None'
+      [alloc, ip]
+    end
+  aws('ec2', 'associate-address', '--instance-id', instance, '--allocation-id', allocation)
+  puts "launch: eip=#{address} allocation=#{allocation}"
+else
+  address = aws('ec2', 'describe-instances', '--instance-ids', instance,
+                '--query', 'Reservations[0].Instances[0].PublicIpAddress', '--output', 'text').strip
+  puts "launch: address=#{address} (temporary, lost on stop)"
+end
+
+steps = []
+if options[:eip] && host.end_with?('.rubyci.org')
+  config = File.read(DNS_CONFIG).lines
+  if config.any? { |line| line.start_with?(%[\tA("#{label}", ]) }
+    puts "launch: dns=skipped (#{label} is already in #{DNS_CONFIG})"
+  else
+    # The A records are not in any order, so append to the end of the block.
+    config.insert(config.rindex { |line| line.start_with?("\tA(") } + 1,
+                  %[\tA("#{label}", "#{address}"),\n])
+    File.write(DNS_CONFIG, config.join)
+    puts "launch: dns=#{DNS_CONFIG}"
+    steps << "commit #{DNS_CONFIG} and merge it; the dns workflow pushes the zone"
+  end
+end
+steps << "add #{host} to hosts.yml"
+steps << "bin/bootstrap -i <keypair.pem> <cloud image user>@#{host}"
+steps << "bin/hocho apply #{host}"
+
+puts 'Next steps:'
+steps.each { |step| puts "  #{step}" }
