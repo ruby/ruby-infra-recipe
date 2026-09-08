@@ -27,6 +27,7 @@ D("rubyci.org", REG_NONE,
 	A("ubuntu2404", "18.180.242.9"),
 	A("ubuntu-arm", "18.178.229.119"),
 	A("ubuntu", "35.72.236.42"),
+	A("amazon2027", "52.69.117.212"),
 	// Cloudflare flattens this apex CNAME; dnscontrol expresses it as ALIAS.
 	ALIAS("@", "rubyci.org.herokudns.com."),
 	CNAME("www", "www.rubyci.org.herokudns.com."),
