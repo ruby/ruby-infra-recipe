@@ -2,9 +2,54 @@
 
 ## Usage
 
+### Launch
+
+`bin/launch` creates a host's EC2 instance through the EC2 API, so a new host needs no web console. The security group (`chkbuild`), instance profile (`chkbuild-uploader`), IMDSv2 requirement and gp3 root volume are the same for every host and are fixed in the script, which leaves the AMI id and the instance type as arguments. The subnet defaults to a default-for-az subnet of the security group's VPC, choosing an availability zone that offers the requested instance type, because the zones do not all offer the same ones. As with `bin/reboot` the region is fixed to `ap-northeast-1` and the AWS CLI is expected to be configured with credentials for the account holding the instances.
+
+```bash
+# resolve the AMI, subnet and Name tag, then dry-run the API call
+bin/launch -n fedora45.rubyci.org ami-0123456789abcdef0 c5a.large
+
+# launch, taking one of the idle Elastic IPs
+bin/launch --eip 52.69.117.212 fedora45.rubyci.org ami-0123456789abcdef0 c5a.large
+```
+
+`--eip new` allocates a new Elastic IP and `--eip <address|allocation id>` takes an existing unassociated one. Either way a `*.rubyci.org` host gets its A record written into `dns/rubyci.org/dnsconfig.js`, and committing that is what applies the zone. Without `--eip` the instance keeps the address its subnet assigns, which is lost on the next stop. The Name tag is `rubyci-<label>`; pass `--name` where that does not hold, as with `riscv.rubyci.org` running on `rubyci-riscv64`.
+
+### Elastic IP swap
+
+Rotating an EOL host out reuses its Elastic IP, which leaves the DNS record alone. Launch the replacement with `bin/launch` and no `--eip`, bootstrap and apply it on the temporary address its subnet assigns, and hand it the host name with `bin/eip-swap` only once it works. The old instance keeps running and loses its public address, so stop or terminate it after the replacement is known good.
+
+```bash
+# report which instance holds the address today, and dry-run the API call
+bin/eip-swap -n debian11.rubyci.org i-0123456789abcdef0
+
+# swap
+bin/eip-swap debian11.rubyci.org i-0123456789abcdef0
+```
+
+The replacement answers on a different host key under the same name, so `ssh-keygen -R <host>` is needed before the next `bin/hocho apply`. Both are printed as next steps.
+
+### Register with rubyci.org
+
+rubyci.org does not discover servers from the S3 bucket, so a host stays invisible on the page until a `Server` row exists for it, and that row is the one step of adding a host that lives outside this repository. `bin/rubyci-server` posts it to the `servers` API, deriving the log uri from the nickname the host's crontab reports under. The `root` basic-auth password is read from the app's own `ROOT_PASSWORD` config var rather than copied into a second place, which is why posting goes through the heroku CLI.
+
+```bash
+# read the public server list and print what would be posted; no credentials needed
+bin/rubyci-server -n "Fedora 45 x86_64" fedora45
+
+# rehearse against the staging app
+op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server --app staging-rubyci "Fedora 45 x86_64" fedora45
+
+# register
+op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server "Fedora 45 x86_64" fedora45
+```
+
+The page is sorted by `ordinal`, a float. The default appends the host to the bottom, from where the servers page moves it up; `--ordinal` between two neighbours puts it next to its family straight away. `--eol` records the end of life shown for hosts that are on their way out.
+
 ### Prepare environment for hocho apply
 
-After launching a VM and assigning the Elastic IP (DNS records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:
+After the instance exists and its DNS record is live (`bin/launch` does both for EC2 hosts; records are managed under `dns/rubyci.org/`, see `dns/README.md`), bootstrap the host with the cloud image's default user:
 
 ```bash
 bin/bootstrap -i ~/.ssh/aws-keypair.pem fedora@fedora44-arm.rubyci.org
