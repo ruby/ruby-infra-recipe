@@ -81,6 +81,9 @@ when 'fedora', 'amazon'
   package 'cronie'
   package 'cronie-anacron'
   service 'crond' do
+    # specinfra maps the amazon platform to the pre-systemd RedHat commands,
+    # and Amazon Linux 2027 no longer ships the chkconfig they call.
+    provider :systemd
     action [:enable, :start]
   end
   package 'patch'
