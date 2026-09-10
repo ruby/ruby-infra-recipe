@@ -1,23 +1,29 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-# Register a chkbuild host with rubyci.org, the one step of adding a host that
-# lives outside this repository.
+# Register a chkbuild host with rubyci.org and edit the row afterwards, the one
+# step of adding a host that lives outside this repository.
 #
-# Usage: bin/rubyci-server [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>
-#   -n           print the request and exit, do not post
-#   --app APP    Heroku app to register with (default: rubyci)
-#   --ordinal N  display order (default: after the last server)
-#   --eol DATE   end of life, YYYY-MM-DD
+# Usage: bin/rubyci-server create [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>
+#        bin/rubyci-server update [-n] [--app APP] [--name NAME] [--ordinal N] [--eol DATE] <nickname>
+#   -n           print the request and exit, do not send it
+#   --app APP    Heroku app to work against (default: rubyci)
+#   --name NAME  display name, update only
+#   --ordinal N  display order (create defaults to after the last server)
+#   --eol DATE   end of life, YYYY-MM-DD; pass an empty string to clear it
 #
 # <nickname> is what the host's crontab sets RUBYCI_NICKNAME to and the S3
-# prefix its logs land under; the uri is derived from it. rubyci.org does not
-# discover servers from the bucket, so a host stays invisible until this row
-# exists. The ordinal is a float and the page is sorted by it, so a value
-# between two neighbours drops the new host next to its family, while the
-# default appends it to the bottom to be moved up from the servers page.
+# prefix its logs land under; the uri is derived from it on create and is what
+# update looks the row up by. rubyci.org does not discover servers from the
+# bucket, so a host stays invisible until this row exists. The ordinal is a
+# float and the page is sorted by it, so a value between two neighbours drops
+# the new host next to its family, while the default appends it to the bottom
+# to be moved up from the servers page.
+#
+# Retiring a host is an update rather than a delete: the row keeps carrying its
+# logs, and --eol is what greys it out on the page.
 #
 # The `root` basic-auth password is read from the app's own ROOT_PASSWORD config
-# var instead of being copied into a second place, so posting needs an
+# var instead of being copied into a second place, so writing needs an
 # authenticated heroku CLI:
 #
 #   op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server ...
@@ -31,34 +37,68 @@ require 'open3'
 require 'optparse'
 
 LOG_BUCKET_URL = 'https://rubyci.s3.amazonaws.com'
+# Rows carry either scheme and most of the old ones omit the trailing slash, so
+# the nickname is read back out of the uri instead of matched against it.
+LOG_URI = %r{\Ahttps?://rubyci\.s3\.amazonaws\.com/(?<nickname>[^/]+)/?\z}
+
+BANNER = <<~USAGE
+  usage: bin/rubyci-server create [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>
+         bin/rubyci-server update [-n] [--app APP] [--name NAME] [--ordinal N] [--eol DATE] <nickname>
+USAGE
+
+command = ARGV.shift
+abort BANNER unless %w[create update].include?(command)
 
 options = { app: 'rubyci' }
 opt = OptionParser.new
-opt.banner = 'usage: bin/rubyci-server [-n] [--app APP] [--ordinal N] [--eol DATE] <name> <nickname>'
+opt.banner = BANNER
 opt.on('-n', 'print the request and exit') { options[:dry_run] = true }
-opt.on('--app APP', 'Heroku app to register with') { |v| options[:app] = v }
+opt.on('--app APP', 'Heroku app to work against') { |v| options[:app] = v }
+opt.on('--name NAME', 'display name, update only') { |v| options[:name] = v }
 opt.on('--ordinal N', Float, 'display order') { |v| options[:ordinal] = v }
-opt.on('--eol DATE', 'end of life, YYYY-MM-DD') { |v| options[:eol] = v }
+opt.on('--eol DATE', 'end of life, YYYY-MM-DD, empty to clear') { |v| options[:eol] = v }
 args = opt.parse(ARGV)
-abort opt.banner unless args.size == 2
-name, nickname = args
 
 # Only the production app has a custom domain.
 base = URI.parse(options[:app] == 'rubyci' ? 'https://rubyci.org' : "https://#{options[:app]}.herokuapp.com")
 
 servers = JSON.parse(Net::HTTP.get(URI.join(base, '/servers.json')))
-abort "#{nickname} is already registered on #{options[:app]}" if
-  servers.any? { |server| server['uri'].to_s.include?("/#{nickname}") }
+registered = ->(nickname) { servers.find { |s| LOG_URI.match(s['uri'].to_s)&.[](:nickname) == nickname } }
 
-server = {
-  name: name,
-  uri: "#{LOG_BUCKET_URL}/#{nickname}/",
-  # Going past the last one leaves the ordinal of every existing row alone.
-  ordinal: options[:ordinal] || servers.map { |s| s['ordinal'].to_f }.max + 1,
-}
-server[:eol_date] = options[:eol] if options[:eol]
+case command
+when 'create'
+  abort BANNER unless args.size == 2
+  name, nickname = args
+  abort "#{nickname} is already registered on #{options[:app]}" if registered[nickname]
 
-puts "rubyci-server: app=#{options[:app]} #{server.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+  server = {
+    name: name,
+    uri: "#{LOG_BUCKET_URL}/#{nickname}/",
+    # Going past the last one leaves the ordinal of every existing row alone.
+    ordinal: options[:ordinal] || servers.map { |s| s['ordinal'].to_f }.max + 1,
+  }
+  server[:eol_date] = options[:eol] if options[:eol]
+  path = '/servers.json'
+  request_class = Net::HTTP::Post
+  summary = server
+when 'update'
+  abort BANNER unless args.size == 1
+  nickname = args.first
+  current = registered[nickname] or abort "#{nickname} is not registered on #{options[:app]}"
+
+  server = {}
+  server[:name] = options[:name] if options[:name]
+  server[:ordinal] = options[:ordinal] if options[:ordinal]
+  # An empty --eol reaches the date column as nil, which is how a host that was
+  # marked for retirement too early gets put back into service.
+  server[:eol_date] = options[:eol] if options[:eol]
+  abort 'nothing to update, pass at least one of --name, --ordinal, --eol' if server.empty?
+  path = "/servers/#{current['id']}.json"
+  request_class = Net::HTTP::Patch
+  summary = { id: current['id'], nickname: nickname }.merge(server)
+end
+
+puts "rubyci-server: app=#{options[:app]} #{summary.map { |k, v| "#{k}=#{v}" }.join(' ')}"
 if options[:dry_run]
   puts 'rubyci-server: status=dry-run'
   exit
@@ -72,8 +112,8 @@ end
 password = out.strip
 abort "ROOT_PASSWORD is not set on #{options[:app]}" if password.empty?
 
-endpoint = URI.join(base, '/servers.json')
-request = Net::HTTP::Post.new(endpoint, 'Content-Type' => 'application/json')
+endpoint = URI.join(base, path)
+request = request_class.new(endpoint, 'Content-Type' => 'application/json')
 request.basic_auth('root', password)
 request.body = JSON.dump(server: server)
 response = Net::HTTP.start(endpoint.host, endpoint.port, use_ssl: endpoint.scheme == 'https') do |http|
@@ -83,6 +123,9 @@ end
 case response
 when Net::HTTPCreated
   puts "rubyci-server: id=#{JSON.parse(response.body)['id']} status=created"
+# An update answers with an empty 200, so the id comes from the lookup.
+when Net::HTTPOK
+  puts "rubyci-server: id=#{current['id']} status=updated"
 when Net::HTTPUnauthorized
   abort "rubyci-server: #{options[:app]} rejected the root password"
 else
