@@ -32,20 +32,23 @@ The replacement answers on a different host key under the same name, so `ssh-key
 
 ### Register with rubyci.org
 
-rubyci.org does not discover servers from the S3 bucket, so a host stays invisible on the page until a `Server` row exists for it, and that row is the one step of adding a host that lives outside this repository. `bin/rubyci-server` posts it to the `servers` API, deriving the log uri from the nickname the host's crontab reports under. The `root` basic-auth password is read from the app's own `ROOT_PASSWORD` config var rather than copied into a second place, which is why posting goes through the heroku CLI.
+rubyci.org does not discover servers from the S3 bucket, so a host stays invisible on the page until a `Server` row exists for it, and that row is the one step of adding a host that lives outside this repository. `bin/rubyci-server create` posts it to the `servers` API, deriving the log uri from the nickname the host's crontab reports under, and `bin/rubyci-server update` edits an existing row, looking it up by the same nickname. The `root` basic-auth password is read from the app's own `ROOT_PASSWORD` config var rather than copied into a second place, which is why writing goes through the heroku CLI.
 
 ```bash
-# read the public server list and print what would be posted; no credentials needed
-bin/rubyci-server -n "Fedora 45 x86_64" fedora45
+# read the public server list and print what would be sent; no credentials needed
+bin/rubyci-server create -n "Fedora 45 x86_64" fedora45
 
 # rehearse against the staging app
-op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server --app staging-rubyci "Fedora 45 x86_64" fedora45
+op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server create --app staging-rubyci "Fedora 45 x86_64" fedora45
 
 # register
-op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server "Fedora 45 x86_64" fedora45
+op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server create "Fedora 45 x86_64" fedora45
+
+# retire, rename, or move an existing host
+op run --env-file ~/.config/credentials/heroku.env -- bin/rubyci-server update --eol 2026-12-31 debian11
 ```
 
-The page is sorted by `ordinal`, a float. The default appends the host to the bottom, from where the servers page moves it up; `--ordinal` between two neighbours puts it next to its family straight away. `--eol` records the end of life shown for hosts that are on their way out.
+The page is sorted by `ordinal`, a float. The default appends the host to the bottom, from where the servers page moves it up; `--ordinal` between two neighbours puts it next to its family straight away. `--eol` records the end of life shown for hosts that are on their way out, and `--eol ''` clears it again. Retiring a host is an update rather than a delete, since the row keeps carrying the logs it already collected.
 
 ### Prepare environment for hocho apply
 
