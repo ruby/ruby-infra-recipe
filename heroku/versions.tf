@@ -13,7 +13,16 @@ terraform {
       source  = "heroku/heroku"
       version = "~> 5.4"
     }
+
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.57"
+    }
   }
+}
+
+provider "aws" {
+  region = "ap-northeast-1"
 }
 
 provider "heroku" {
