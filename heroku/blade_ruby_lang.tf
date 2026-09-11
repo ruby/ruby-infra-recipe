@@ -14,7 +14,7 @@ resource "heroku_app" "blade_ruby_lang" {
 resource "heroku_formation" "blade_ruby_lang_web" {
   app_id   = heroku_app.blade_ruby_lang.id
   type     = "web"
-  quantity = 10
+  quantity = 7
   size     = "performance-m"
 }
 
