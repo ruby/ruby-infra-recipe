@@ -1,7 +1,7 @@
 resource "heroku_app" "bugs_ruby_lang" {
   name   = "bugs-ruby-lang"
   region = "us"
-  stack  = "heroku-24"
+  stack  = "heroku-26"
   acm    = true
 
   buildpacks = [
