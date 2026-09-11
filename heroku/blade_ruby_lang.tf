@@ -16,6 +16,10 @@ resource "heroku_formation" "blade_ruby_lang_web" {
   type     = "web"
   quantity = 7
   size     = "performance-m"
+
+  lifecycle {
+    ignore_changes = [quantity]
+  }
 }
 
 resource "heroku_addon" "blade_ruby_lang_postgresql" {
