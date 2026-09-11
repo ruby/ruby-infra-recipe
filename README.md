@@ -69,7 +69,7 @@ sudo qemu-system-x86_64 \
 Important information during OpenBSD installation. If an answer
 isn't listed here, use the default:
 
-* System hostname: `rubyci-openbsd`
+* System hostname: `openbsd`
 * Password: randomly generate a secure one and store it
 * Do you expect to run the X Window System? `no`
 * Which speed should com0 use? `115200`
@@ -169,7 +169,7 @@ Then exit the root shell.
 Install the necessary packages needed for CI:
 
 ```sh
-doas pkg_add rsync-- bash sudo-- git
+doas pkg_add rsync-- bash sudo-- git gmake autoconf%2.69 automake%1.16
 ```
 
 Then configure `sudo`
