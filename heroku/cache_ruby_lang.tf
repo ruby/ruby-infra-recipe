@@ -1,7 +1,7 @@
 resource "heroku_app" "cache_ruby_lang" {
   name   = "cache-ruby-lang"
   region = "us"
-  stack  = "heroku-24"
+  stack  = "heroku-26"
 
   buildpacks = ["heroku/ruby"]
 

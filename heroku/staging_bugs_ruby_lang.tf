@@ -1,7 +1,7 @@
 resource "heroku_app" "staging_bugs_ruby_lang" {
   name   = "staging-bugs-ruby-lang"
   region = "us"
-  stack  = "heroku-24"
+  stack  = "heroku-26"
 
   buildpacks = [
     # Heroku stores the resolved registry tarball, not the shorthand name.

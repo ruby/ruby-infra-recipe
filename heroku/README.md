@@ -31,4 +31,4 @@ State is stored in `s3://ruby-lang-terraform-state/heroku/terraform.tfstate` (ap
 
 ## Notes
 
-The `ruboty-ruby-jp` and `ruby-lang-ruboty` apps still run on `heroku-20`, and `play-ruby` and `staging-blade-ruby-lang` on `heroku-22`. Bumping `stack` here triggers the upgrade on the next release.
+The `ruby-lang-ruboty` app still runs on `heroku-20`, and `play-ruby` and `staging-blade-ruby-lang` on `heroku-22`. Bumping `stack` here triggers the upgrade on the next release.

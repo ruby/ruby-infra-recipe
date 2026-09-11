@@ -1,7 +1,7 @@
 resource "heroku_app" "staging_rubyci" {
   name   = "staging-rubyci"
   region = "us"
-  stack  = "heroku-24"
+  stack  = "heroku-26"
 
   buildpacks = [
     "https://github.com/DataDog/heroku-buildpack-datadog.git",

@@ -1,7 +1,7 @@
 resource "heroku_app" "rubyci" {
   name   = "rubyci"
   region = "us"
-  stack  = "heroku-24"
+  stack  = "heroku-26"
   acm    = true
 
   buildpacks = [

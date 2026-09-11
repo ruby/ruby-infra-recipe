@@ -28,6 +28,11 @@ resource "heroku_domain" "blade_ruby_lang_blade_ruby_lang_org" {
   hostname = "blade.ruby-lang.org"
 }
 
+resource "heroku_domain" "blade_ruby_lang_archive_ruby_lang_org" {
+  app_id   = heroku_app.blade_ruby_lang.id
+  hostname = "archive.ruby-lang.org"
+}
+
 resource "heroku_pipeline_coupling" "blade_ruby_lang" {
   app_id   = heroku_app.blade_ruby_lang.id
   pipeline = heroku_pipeline.blade_ruby_lang.id

@@ -1,7 +1,7 @@
 resource "heroku_app" "ruboty_ruby_jp" {
   name   = "ruboty-ruby-jp"
   region = "us"
-  stack  = "heroku-20"
+  stack  = "heroku-26"
   acm    = true
 
   buildpacks = ["heroku/ruby"]
