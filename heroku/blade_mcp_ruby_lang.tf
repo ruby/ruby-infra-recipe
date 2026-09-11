@@ -10,6 +10,18 @@ resource "heroku_app" "blade_mcp_ruby_lang" {
   }
 }
 
+import {
+  to = heroku_formation.blade_mcp_ruby_lang_web
+  id = "blade-mcp-ruby-lang:web"
+}
+
+resource "heroku_formation" "blade_mcp_ruby_lang_web" {
+  app_id   = heroku_app.blade_mcp_ruby_lang.id
+  type     = "web"
+  quantity = 1
+  size     = "basic"
+}
+
 resource "heroku_addon" "blade_mcp_ruby_lang_postgresql" {
   app_id = heroku_app.blade_mcp_ruby_lang.id
   plan   = "heroku-postgresql:standard-0"
