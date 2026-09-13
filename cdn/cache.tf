@@ -23,15 +23,15 @@ resource "fastly_service_vcl" "cache" {
     # Rewriting Host in custom VCL instead would send the shield a Host that is
     # not a domain of this service, which fails the shield fetch and only works
     # because the 5xx restart then bypasses the shield.
-    override_host         = "cache-ruby-lang.herokuapp.com"
-    port                  = 443
-    prefer_ipv6           = false
-    request_condition     = "url-is-index-app"
-    shield                = "iad-va-us"
-    ssl_cert_hostname     = "cache-ruby-lang.herokuapp.com"
-    ssl_check_cert        = true
-    use_ssl               = true
-    weight                = 100
+    override_host     = "cache-ruby-lang.herokuapp.com"
+    port              = 443
+    prefer_ipv6       = false
+    request_condition = "url-is-index-app"
+    shield            = "iad-va-us"
+    ssl_cert_hostname = "cache-ruby-lang.herokuapp.com"
+    ssl_check_cert    = true
+    use_ssl           = true
+    weight            = 100
   }
 
   backend {

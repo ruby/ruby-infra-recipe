@@ -12,8 +12,8 @@ resource "fastly_service_vcl" "docs" {
   # service claims it within the same apply. Safe to drop after the cutover.
   depends_on = [fastly_service_vcl.docs_dev]
 
-  activate           = true
-  stage              = false
+  activate = true
+  stage    = false
   # A shielded fetch needs a Host that is a domain of this service, so the
   # bucket endpoint doubles as default_host and as a domain below, the same
   # arrangement as cache.tf. The other backends override_host instead.
