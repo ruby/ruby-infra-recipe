@@ -28,6 +28,31 @@ resource "fastly_service_vcl" "archive" {
     weight                = 100
   }
 
+  # The blade-mcp app. The Heroku router picks the app by Host, so the herokuapp
+  # hostname goes in Host as well as SNI. Unshielded, as the app runs in the US.
+  backend {
+    address               = "blade-mcp-ruby-lang-b92c3ddd7e9d.herokuapp.com"
+    auto_loadbalance      = false
+    between_bytes_timeout = 10000
+    connect_timeout       = 1000
+    error_threshold       = 0
+    first_byte_timeout    = 15000
+    keepalive_time        = 0
+    max_conn              = 200
+    max_lifetime          = 0
+    max_use               = 0
+    name                  = "blade-mcp-ruby-lang"
+    override_host         = "blade-mcp-ruby-lang-b92c3ddd7e9d.herokuapp.com"
+    port                  = 443
+    prefer_ipv6           = false
+    request_condition     = "url-is-mcp"
+    ssl_cert_hostname     = "blade-mcp-ruby-lang-b92c3ddd7e9d.herokuapp.com"
+    ssl_check_cert        = true
+    ssl_sni_hostname      = "blade-mcp-ruby-lang-b92c3ddd7e9d.herokuapp.com"
+    use_ssl               = true
+    weight                = 100
+  }
+
   # A shielded miss runs the logging endpoint at both POPs, so one request
   # becomes two events carrying the same byte count. The edge sets Fastly-FF when
   # it forwards to the shield, so this keeps the edge line, which is the one with
@@ -38,6 +63,21 @@ resource "fastly_service_vcl" "archive" {
     priority  = 10
     statement = "!req.http.Fastly-FF"
     type      = "RESPONSE"
+  }
+
+  condition {
+    name      = "url-is-mcp"
+    priority  = 10
+    statement = "req.url.path == \"/mcp\""
+    type      = "REQUEST"
+  }
+
+  # Keeps the archive's plain text Content-Type off the MCP app's JSON responses.
+  condition {
+    name      = "url-is-not-mcp"
+    priority  = 10
+    statement = "req.url.path != \"/mcp\""
+    type      = "CACHE"
   }
 
   domain {
@@ -55,13 +95,14 @@ resource "fastly_service_vcl" "archive" {
   }
 
   header {
-    action        = "set"
-    destination   = "http.Content-Type"
-    ignore_if_set = false
-    name          = "Add Content Type"
-    priority      = 10
-    source        = "\"text/plain; charset=utf-8\""
-    type          = "cache"
+    action          = "set"
+    cache_condition = "url-is-not-mcp"
+    destination     = "http.Content-Type"
+    ignore_if_set   = false
+    name            = "Add Content Type"
+    priority        = 10
+    source          = "\"text/plain; charset=utf-8\""
+    type            = "cache"
   }
 
   logging_datadog {
@@ -72,5 +113,17 @@ resource "fastly_service_vcl" "archive" {
     region             = "AP1"
     response_condition = "not-shield-request"
     token              = var.datadog_token
+  }
+
+  request_setting {
+    action            = "pass"
+    bypass_busy_wait  = false
+    force_miss        = false
+    force_ssl         = false
+    max_stale_age     = 0
+    name              = "Pass MCP"
+    request_condition = "url-is-mcp"
+    timer_support     = false
+    xff               = "append"
   }
 }
