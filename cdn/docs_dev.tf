@@ -6,8 +6,8 @@
 # shielding, see cache.tf); every request the VCL lets through is flagged
 # to one of the S3 backends, and non-GET/HEAD methods get a synthetic 405.
 resource "fastly_service_vcl" "docs_dev" {
-  activate           = true
-  stage              = false
+  activate = true
+  stage    = false
   # A shielded fetch needs a Host that is a domain of some service, and a
   # domain can only be attached to one: docs.tf owns the bucket endpoint, so
   # a shielded fetch from here enters the docs service at the shield POP,
