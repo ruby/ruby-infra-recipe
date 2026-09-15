@@ -121,7 +121,13 @@ end
 package 'ruby-dev'
 package 'build-essential'
 package 'libssl-dev'
-gem_package 'mcp'
+# Pinned because gem_package never upgrades an installed gem. mcp 1.1.0
+# advertises protocol 2026-07-28 but omits the resultType it requires, so
+# Claude Code drops every tool.
+gem_package 'mcp' do
+  version '1.5.1'
+  notifies :restart, 'service[gem-codesearch-mcp]'
+end
 
 # The Ubuntu puma (5.5.2) and ruby-rack (2.1.4) debs register themselves as
 # installed gems, so gem_package would consider them present and skip. Use
