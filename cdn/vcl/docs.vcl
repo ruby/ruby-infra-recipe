@@ -34,6 +34,7 @@ sub vcl_recv {
     unset req.http.X-Docs-Version;
     unset req.http.X-Redirect-Location;
     unset req.http.X-Docs-Backend;
+    unset req.http.X-Docs-Not-Found;
   }
 
   # doc.ruby-lang.org is a legacy hostname whose nginx vhost is nothing but
@@ -46,18 +47,18 @@ sub vcl_recv {
     error 601;
   }
 
-  # The md fallback restart must run at the edge only, but vcl_fetch cannot
-  # use Fastly-FF to tell the edge from the shield: the clustering hop
-  # between the delivery and fetch node inside a POP also sets it, so it is
-  # present in fetch even at the edge and the fallback never fired. Decide
-  # here instead, where Fastly-FF still means "another Fastly POP sent
-  # this": the edge plants a marker and the shield strips it. On the edge
-  # the marker overwrites any client spoof; a client sending Fastly-FF only
-  # opts itself out of the fallback.
+  # The md fallback restart in vcl_fetch and the 404 page restart in
+  # vcl_deliver must run at the edge only, but neither subroutine can use
+  # Fastly-FF to tell the edge from the shield: the clustering hop between
+  # the delivery and fetch node inside a POP also sets it, so it is present
+  # there even at the edge. Decide here instead, where Fastly-FF still
+  # means "another Fastly POP sent this": the edge plants a marker and the
+  # shield strips it. On the edge the marker overwrites any client spoof; a
+  # client sending Fastly-FF only opts itself out of those restarts.
   if (req.http.Fastly-FF) {
-    unset req.http.X-Docs-Md-Fallback;
+    unset req.http.X-Docs-Edge;
   } elsif (req.restarts == 0) {
-    set req.http.X-Docs-Md-Fallback = "edge";
+    set req.http.X-Docs-Edge = "1";
   }
 
   if (req.request == "HEAD" || req.request == "GET") {
@@ -198,10 +199,11 @@ sub vcl_fetch {
   # A negotiated .md that does not exist falls back to the .html twin
   # (403 is what public-read S3 answers for a missing key). Edge only: if
   # the shield restarted instead, the edge would cache the fallback .html
-  # response under the .md cache key it asked the shield for. The marker
-  # comes from vcl_recv; Fastly-FF itself is unusable here because the
-  # intra-POP clustering hop sets it on the edge's fetch node too.
-  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && req.http.X-Docs-Md-Fallback == "edge") {
+  # response under the .md cache key it asked the shield for. The
+  # X-Docs-Edge marker comes from vcl_recv; Fastly-FF itself is unusable
+  # here because the intra-POP clustering hop sets it on the edge's fetch
+  # node too.
+  if ((beresp.status == 403 || beresp.status == 404) && req.http.X-Md-Negotiate == "md" && req.restarts < 3 && req.http.X-Docs-Edge) {
     set req.http.X-Md-Negotiate = "fallback";
     restart;
   }
@@ -318,6 +320,47 @@ sub vcl_miss {
 
 sub vcl_deliver {
 #FASTLY deliver
+
+  # The nginx error_page 404 equivalent: a missing key is answered with
+  # the site's 404 page from the bucket (public/ja/404.html and
+  # public/404.html in ruby/docs.ruby-lang.org), served under the client's
+  # URL with the 404 status, so the page's script sees the URL that
+  # missed. Restarting from here keeps the negative cache: the 404 for the
+  # client URL is cached with its short TTL as before, and the page is an
+  # ordinary object. Edge only, so the shield hands the raw 404 up and
+  # never answers for the page; X-Docs-Not-Found allows the one restart,
+  # so a missing 404 page falls through to the raw response.
+  if (resp.status == 404 && !req.http.X-Docs-Not-Found && req.http.X-Docs-Edge && req.restarts < 3 && (req.request == "GET" || req.request == "HEAD") && req.http.X-Docs-Backend) {
+    set req.http.X-Docs-Not-Found = req.url;
+    if (req.url ~ "^/ja/") {
+      set req.url = "/ja/404.html";
+    } else {
+      set req.url = "/404.html";
+    }
+    # The page is HTML whatever the client negotiated, and it must not
+    # inherit the alias or the negotiation state of the URL that missed.
+    unset req.http.Accept;
+    unset req.http.X-Md-Negotiate;
+    unset req.http.X-Docs-Symlink;
+    unset req.http.X-Docs-Version;
+    # A validator or range the client sent belongs to the URL that
+    # missed, not to the page.
+    unset req.http.If-None-Match;
+    unset req.http.If-Modified-Since;
+    unset req.http.Range;
+    restart;
+  }
+
+  if (req.http.X-Docs-Not-Found && req.http.X-Docs-Edge) {
+    if (resp.status == 200) {
+      set resp.status = 404;
+      set resp.response = "Not Found";
+      set resp.http.Cache-Control = "public, max-age=60";
+    }
+    # Log the URL that missed, not the page that answered for it.
+    set req.url = req.http.X-Docs-Not-Found;
+  }
+
   return(deliver);
 }
 
