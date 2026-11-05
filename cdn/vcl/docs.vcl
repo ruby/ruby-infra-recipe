@@ -347,6 +347,8 @@ sub vcl_deliver {
     # missed, not to the page.
     unset req.http.If-None-Match;
     unset req.http.If-Modified-Since;
+    unset req.http.If-Match;
+    unset req.http.If-Unmodified-Since;
     unset req.http.Range;
     restart;
   }
