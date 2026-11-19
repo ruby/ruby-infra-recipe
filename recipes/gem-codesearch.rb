@@ -175,7 +175,9 @@ file '/etc/systemd/system/gem-codesearch-mcp.service' do
     'WantedBy=multi-user.target',
     '',
   ].join("\n")
-  notifies :run, 'execute[systemctl daemon-reload]'
+  # Immediately, or the restart queued by the gem_package resources runs
+  # first and brings back the previous ExecStart.
+  notifies :run, 'execute[systemctl daemon-reload]', :immediately
   notifies :restart, 'service[gem-codesearch-mcp]'
 end
 
