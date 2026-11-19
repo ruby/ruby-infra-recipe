@@ -368,7 +368,7 @@ bin/all-hosts bin/reboot
 
 ### gem-codesearch MCP server (gem-codesearch.dev.ruby-lang.org)
 
-`recipes/gem-codesearch.rb` runs the MCP server from [akr/gem-codesearch](https://github.com/akr/gem-codesearch) as the systemd unit `gem-codesearch-mcp` (puma on localhost:9292) behind nginx, which terminates TLS with a certbot certificate obtained manually on the host. mame's services on the same host (`mame.dev.ruby-lang.org`, `/etc/nginx/sites-available/ssl.conf`, systemd user units) are not managed by this repository.
+`recipes/gem-codesearch.rb` runs the MCP server from [akr/gem-codesearch](https://github.com/akr/gem-codesearch) as the systemd unit `gem-codesearch-mcp` (puma on localhost:9292, running on the gem-codesearch user's rbenv Ruby set by `mcp_ruby_version`) behind nginx, which terminates TLS with a certbot certificate obtained manually on the host. mame's services on the same host (`mame.dev.ruby-lang.org`, `/etc/nginx/sites-available/ssl.conf`, systemd user units) are not managed by this repository.
 
 The server requires a Bearer token. It is generated on the host at first apply with `openssl rand -hex 32` into `/etc/gem-codesearch/mcp-token.env` and is never stored in this repository. To read it:
 
