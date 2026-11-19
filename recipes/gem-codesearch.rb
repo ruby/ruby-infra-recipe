@@ -117,28 +117,41 @@ end
 # systemd user units) live on the same host and are intentionally not
 # managed here.
 
-# Toolchain for puma's native extension; mcp and rack are pure Ruby.
-package 'ruby-dev'
-package 'build-essential'
-package 'libssl-dev'
+# The server runs on its own rbenv Ruby rather than Ubuntu 22.04's ruby3.0,
+# which reached EOL on 2024-04-23. The system ruby above still runs the
+# daily mirror job and the committers' gem-codesearch command.
+mcp_ruby_version = '4.0.10'
+
+node.reverse_merge!(
+  rbenv: {
+    user: 'gem-codesearch',
+    versions: [mcp_ruby_version],
+  },
+  'ruby-build': {
+    build_envs: {
+      'RUBY_CONFIGURE_OPTS': '--disable-install-doc',
+    },
+  },
+)
+
+include_recipe 'rbenv::user'
+
+mcp_ruby_bin = "#{home}/.rbenv/versions/#{mcp_ruby_version}/bin"
+
 # Pinned because gem_package never upgrades an installed gem. mcp 1.1.0
 # advertises protocol 2026-07-28 but omits the resultType it requires, so
 # Claude Code drops every tool.
-gem_package 'mcp' do
-  version '1.5.1'
-  notifies :restart, 'service[gem-codesearch-mcp]'
-end
-
-# The Ubuntu puma (5.5.2) and ruby-rack (2.1.4) debs register themselves as
-# installed gems, so gem_package would consider them present and skip. Use
-# version-guarded installs instead; the app is developed against rack 3,
-# and RubyGems activates the newest installed version at require time.
-execute 'gem install rack' do
-  not_if "gem list -i rack -v '>= 3'"
-end
-
-execute 'gem install puma' do
-  not_if "gem list -i puma -v '>= 6'"
+{
+  'mcp' => '1.5.1',
+  'rack' => '3.2.8',
+  'puma' => '8.1.2',
+}.each do |name, gem_version|
+  gem_package name do
+    gem_binary "#{mcp_ruby_bin}/gem"
+    version gem_version
+    user 'gem-codesearch'
+    notifies :restart, 'service[gem-codesearch-mcp]'
+  end
 end
 
 directory '/etc/gem-codesearch' do
@@ -153,8 +166,6 @@ execute 'generate gem-codesearch MCP token' do
   not_if 'test -s /etc/gem-codesearch/mcp-token.env'
 end
 
-# gem_package puma installs into /usr/local/bin; /usr/bin/puma is the
-# unrelated Ubuntu package left for mame's setups.
 file '/etc/systemd/system/gem-codesearch-mcp.service' do
   mode '644'
   content [
@@ -168,14 +179,16 @@ file '/etc/systemd/system/gem-codesearch-mcp.service' do
     "Environment=GEM_CODESEARCH_DIR=#{checkout}",
     'Environment=GEM_CODESEARCH_GEM_DIR=/srv/gems',
     'EnvironmentFile=/etc/gem-codesearch/mcp-token.env',
-    'ExecStart=/usr/local/bin/puma -b tcp://127.0.0.1:9292 config.ru',
+    "ExecStart=#{mcp_ruby_bin}/puma -b tcp://127.0.0.1:9292 config.ru",
     'Restart=on-failure',
     '',
     '[Install]',
     'WantedBy=multi-user.target',
     '',
   ].join("\n")
-  notifies :run, 'execute[systemctl daemon-reload]'
+  # Immediately, or the restart queued by the gem_package resources runs
+  # first and brings back the previous ExecStart.
+  notifies :run, 'execute[systemctl daemon-reload]', :immediately
   notifies :restart, 'service[gem-codesearch-mcp]'
 end
 
