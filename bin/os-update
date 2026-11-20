@@ -32,18 +32,34 @@ REMOTE_SCRIPT = <<~'SH'
   update_rpm() {
     pkg=dnf
     command -v dnf >/dev/null 2>&1 || pkg=yum
-    sudo -n "$pkg" -q check-update
-    case $? in
-    0) ;;
-    100)
+    # Amazon Linux locks the repositories to the installed release, so
+    # check-update never sees a newer one; move to the newest release instead.
+    release=
+    if [ "$ID" = amzn ]; then
+      release=$(sudo -n dnf check-release-update 2>&1 |
+        sed -n 's/.*--releasever=\([0-9.]*\).*/\1/p' | sort -V | tail -n 1)
+    fi
+    if [ -n "$release" ]; then
+      echo "newer release: $release"
       pending=yes
       if [ "$MODE" = apply ]; then
-        run "$pkg" -y upgrade || exit 1
+        run dnf -y --releasever="$release" upgrade || exit 1
         updated=yes
       fi
-      ;;
-    *) exit 1 ;;
-    esac
+    else
+      sudo -n "$pkg" -q check-update
+      case $? in
+      0) ;;
+      100)
+        pending=yes
+        if [ "$MODE" = apply ]; then
+          run "$pkg" -y upgrade || exit 1
+          updated=yes
+        fi
+        ;;
+      *) exit 1 ;;
+      esac
+    fi
     if command -v needs-restarting >/dev/null 2>&1; then
       sudo -n needs-restarting -r >/dev/null 2>&1 || reboot=yes
     fi
