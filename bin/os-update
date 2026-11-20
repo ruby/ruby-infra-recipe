@@ -138,6 +138,16 @@ REMOTE_SCRIPT = <<~'SH'
     else
       echo "freebsd-update skipped: $fu"
     fi
+    # pkgbase updates the kernel through pkg, so compare versions instead of
+    # relying on the freebsd-update install above
+    [ "$(freebsd-version -k)" != "$(uname -r)" ] && reboot=yes
+  }
+
+  # needs-restarting is missing on Fedora and Amazon Linux and arch has no
+  # equivalent, so a kernel newer than the running one also means a reboot
+  check_kernel() {
+    newest=$(ls /lib/modules 2>/dev/null | grep '^[0-9]' | sort -V | tail -n 1)
+    [ -n "$newest" ] && [ "$newest" != "$(uname -r)" ] && reboot=yes
   }
 
   echo "== $(hostname) / $(uname -srm) / mode=$MODE"
@@ -151,6 +161,7 @@ REMOTE_SCRIPT = <<~'SH'
     arch) update_arch ;;
     *) echo "unsupported Linux distribution: $ID"; skipped=yes ;;
     esac
+    check_kernel
     ;;
   FreeBSD) update_freebsd ;;
   # OpenBSD is updated by its own maintainer; never touch it from here

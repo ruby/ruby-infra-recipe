@@ -338,7 +338,7 @@ bin/all-hosts bin/hocho apply
 
 ### OS updates
 
-`bin/os-update` runs OS package updates on a single host over ssh. It detects the platform on the host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update). Amazon Linux keeps its repositories locked to the installed release, so there it moves to the newest release that `dnf check-release-update` offers. OpenBSD is updated by its own maintainer and is always skipped. Reboots are never performed; the final output line reports whether one is needed.
+`bin/os-update` runs OS package updates on a single host over ssh. It detects the platform on the host and picks the right command (dnf, yum, apt, zypper, pacman, pkg + freebsd-update). Amazon Linux keeps its repositories locked to the installed release, so there it moves to the newest release that `dnf check-release-update` offers. OpenBSD is updated by its own maintainer and is always skipped. Reboots are never performed; the final output line reports whether one is needed, which includes any host whose installed kernel is newer than the running one.
 
 ```bash
 # check for pending updates only
