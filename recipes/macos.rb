@@ -9,6 +9,13 @@ chkbuild = node[:chkbuild] || {}
 user = chkbuild[:user] || 'chkbuild'
 home = "/Users/#{user}"
 
+# Spotlight indexed every build tree and its store grew past 100GB, which
+# filled the disk on ringo. Nothing on these hosts searches with it.
+# Naming /System/Volumes/Data fails on macOS 15, so only / is given.
+execute 'mdutil -i off /' do
+  not_if "mdutil -s / | grep -q 'Indexing disabled'"
+end
+
 # Build dependencies for the chkbuild ruby builds, from MacPorts.
 # start-rubyci puts /opt/local/bin on PATH and configures with
 # --with-openssl-dir=/opt/local --with-libyaml-dir=/opt/local;
